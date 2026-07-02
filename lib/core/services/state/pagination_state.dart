@@ -22,15 +22,12 @@ sealed class PaginationState<T> extends NormalState<List<T>> {
 
 class PaginationInitialState<T> extends PaginationState<T> {
   const PaginationInitialState()
-      : super(data: const [], currentPage: 1, lastPage: 1, totalRecord: 0);
+    : super(data: const [], currentPage: 1, lastPage: 1, totalRecord: 0);
 }
 
 class PaginationLoadingState<T> extends PaginationState<T> {
   const PaginationLoadingState({super.data, super.currentPage = 1})
-      : super(
-          lastPage: 1,
-          totalRecord: 0,
-        );
+    : super(lastPage: 1, totalRecord: 0);
 }
 
 class PaginationSuccessState<T> extends PaginationState<T> {
@@ -39,9 +36,7 @@ class PaginationSuccessState<T> extends PaginationState<T> {
     super.currentPage = 1,
     super.lastPage = 1,
     super.totalRecord = 0,
-  }) : super(
-          data: data,
-        );
+  }) : super(data: data);
 }
 
 class PaginationFailureState<T> extends PaginationState<T> {
@@ -51,7 +46,5 @@ class PaginationFailureState<T> extends PaginationState<T> {
     super.currentPage = 1,
     super.lastPage = 1,
     super.totalRecord = 0,
-  }) : super(
-          failure: failure,
-        );
+  }) : super(failure: failure);
 }

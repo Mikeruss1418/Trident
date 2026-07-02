@@ -1,6 +1,7 @@
 import 'package:trident/core/constants/app_colors.dart';
 import 'package:trident/core/extensions/app_extensions.dart';
 import 'package:trident/core/utils/app_imports.dart';
+
 enum TextType {
   /// font size: 32.sp, font weight: w500
   displayLarge,
@@ -52,7 +53,6 @@ enum TextType {
   /// Requires [TextOptions] to be provided.
   custom,
 }
-
 
 /// Overrides for [TextType.custom]. All fields optional — falls back to theme defaults.
 
@@ -117,7 +117,8 @@ class TextWidget extends StatelessWidget {
   TextStyle _getTextStyle(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     // Explicit null fallback — never bang theme colors.
-    final resolvedColor = color ?? tt.bodyMedium?.color ?? AppColors.textPrimary;
+    final resolvedColor =
+        color ?? tt.bodyMedium?.color ?? AppColors.textPrimary;
     TextStyle? base;
     switch (textType) {
       case TextType.displayLarge:

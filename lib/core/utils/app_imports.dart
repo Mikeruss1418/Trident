@@ -4,7 +4,4 @@ export 'package:flutter_screenutil/flutter_screenutil.dart';
 export 'package:trident/core/widgets/screen_padding.dart';
 export 'package:trident/core/widgets/dimiss_keyboard_widget.dart';
 export 'package:trident/core/widgets/text/text_widget.dart';
-export  'package:trident/core/constants/app_colors.dart';
-
-
-
+export 'package:trident/core/constants/app_colors.dart';

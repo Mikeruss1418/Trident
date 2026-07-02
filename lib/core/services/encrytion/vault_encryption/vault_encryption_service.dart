@@ -3,50 +3,8 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:injectable/injectable.dart';
-
-/// Serialized blob of an AES-256-GCM encrypted value.
-/// Wire format: [12-byte nonce][16-byte MAC][N-byte ciphertext]
-/// Total overhead: 28 bytes per blob.
-class EncryptedBlob {
-  final Uint8List bytes; // full serialized wire format
-
-  const EncryptedBlob(this.bytes);
-
-  static const int _nonceLength = 12;
-  static const int _macLength = 16;
-  static const int headerLength = _nonceLength + _macLength; // 28
-
-  Uint8List get nonce => bytes.sublist(0, _nonceLength);
-  Uint8List get mac => bytes.sublist(_nonceLength, headerLength);
-  Uint8List get ciphertext => bytes.sublist(headerLength);
-
-  /// Validates length. Throws [ArgumentError] if bytes are too short.
-  factory EncryptedBlob.validate(Uint8List bytes) {
-    if (bytes.length < headerLength) {
-      throw ArgumentError(
-        'EncryptedBlob too short: ${bytes.length} bytes (min $headerLength)',
-      );
-    }
-    return EncryptedBlob(bytes);
-  }
-}
-
-/// Produced by [createVaultMaterial].
-/// Persist [salt], [encryptedDekBlob], [passwordVerifierBlob].
-/// Keep [dek] in memory only — never write it anywhere.
-class VaultCreationResult {
-  final Uint8List salt;
-  final EncryptedBlob encryptedDekBlob;
-  final EncryptedBlob passwordVerifierBlob;
-  final Uint8List dek; // IN-MEMORY ONLY
-
-  const VaultCreationResult({
-    required this.salt,
-    required this.encryptedDekBlob,
-    required this.passwordVerifierBlob,
-    required this.dek,
-  });
-}
+import 'package:trident/core/models/encryption/encrypted_blob_model.dart';
+import 'package:trident/core/models/encryption/vault_creation_result_model.dart';
 
 @lazySingleton
 class VaultEncryptionService {
@@ -90,8 +48,10 @@ class VaultEncryptionService {
   // -------------------------------------------------------------------------
 
   /// Derives KEK, generates DEK, encrypts both DEK and verifier.
-  /// Returns [VaultCreationResult] — persist everything except [dek].
-  Future<VaultCreationResult> createVaultMaterial(String masterPassword) async {
+  /// Returns [VaultCreationResultModel] — persist everything except [dek].
+  Future<VaultCreationResultModel> createVaultMaterial(
+    String masterPassword,
+  ) async {
     final salt = _randomBytes(_saltLength);
     final kek = await _deriveKek(masterPassword, salt);
 
@@ -104,7 +64,7 @@ class VaultEncryptionService {
 
     _zero(kek); // KEK is no longer needed
 
-    return VaultCreationResult(
+    return VaultCreationResultModel(
       salt: salt,
       encryptedDekBlob: encryptedDekBlob,
       passwordVerifierBlob: passwordVerifierBlob,
@@ -124,8 +84,8 @@ class VaultEncryptionService {
   Future<Uint8List> unlockVault({
     required String masterPassword,
     required Uint8List salt,
-    required EncryptedBlob encryptedDekBlob,
-    required EncryptedBlob passwordVerifierBlob,
+    required EncryptedBlobModel encryptedDekBlob,
+    required EncryptedBlobModel passwordVerifierBlob,
   }) async {
     final kek = await _deriveKek(masterPassword, salt);
 
@@ -158,8 +118,8 @@ class VaultEncryptionService {
   // -------------------------------------------------------------------------
 
   /// Encrypts [plaintext] with the in-memory [dek].
-  /// Returns an [EncryptedBlob] — call [.bytes] for storage.
-  Future<EncryptedBlob> encryptDocument(
+  /// Returns an [EncryptedBlobModel] — call [.bytes] for storage.
+  Future<EncryptedBlobModel> encryptDocument(
     Uint8List plaintext,
     Uint8List dek,
   ) async {
@@ -167,7 +127,10 @@ class VaultEncryptionService {
   }
 
   /// Decrypts [blob] with the in-memory [dek].
-  Future<Uint8List> decryptDocument(EncryptedBlob blob, Uint8List dek) async {
+  Future<Uint8List> decryptDocument(
+    EncryptedBlobModel blob,
+    Uint8List dek,
+  ) async {
     return _decrypt(dek, blob);
   }
 
@@ -183,7 +146,7 @@ class VaultEncryptionService {
     return Uint8List.fromList(await secretKey.extractBytes());
   }
 
-  Future<EncryptedBlob> _encrypt(
+  Future<EncryptedBlobModel> _encrypt(
     Uint8List keyBytes,
     Uint8List plaintext,
   ) async {
@@ -198,10 +161,13 @@ class VaultEncryptionService {
     blob.setRange(0, 12, secretBox.nonce);
     blob.setRange(12, 28, secretBox.mac.bytes);
     blob.setRange(28, blob.length, secretBox.cipherText);
-    return EncryptedBlob(blob);
+    return EncryptedBlobModel(blob);
   }
 
-  Future<Uint8List> _decrypt(Uint8List keyBytes, EncryptedBlob blob) async {
+  Future<Uint8List> _decrypt(
+    Uint8List keyBytes,
+    EncryptedBlobModel blob,
+  ) async {
     final secretBox = SecretBox(
       blob.ciphertext,
       nonce: blob.nonce,

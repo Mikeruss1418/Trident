@@ -30,7 +30,7 @@ class AppTheme {
     // =========================
     // AppBar
     // =========================
-    appBarTheme:  AppBarTheme(
+    appBarTheme: AppBarTheme(
       backgroundColor: AppColors.background,
       elevation: 0,
       centerTitle: false,

@@ -20,7 +20,7 @@ class ResponsiveLayoutWidget extends StatelessWidget {
   /// An optional generic builder if you prefer to write custom switch logic
   /// inline using the [ResponsiveLayoutInfoModel].
   final Widget Function(BuildContext context, ResponsiveLayoutInfoModel layout)?
-      builder;
+  builder;
 
   const ResponsiveLayoutWidget({
     super.key,
@@ -58,7 +58,8 @@ class ResponsiveLayoutWidget extends StatelessWidget {
           return widgetBuilder(context);
         } else {
           // Fallback sequence for Tablet Landscape
-          final widgetBuilder = tabletLandscape ??
+          final widgetBuilder =
+              tabletLandscape ??
               tabletPortrait ??
               mobileLandscape ??
               mobilePortrait;

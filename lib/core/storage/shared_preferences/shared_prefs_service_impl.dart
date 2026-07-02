@@ -9,62 +9,42 @@ class SharedPrefsServiceImpl implements SharedPrefsService {
   SharedPrefsServiceImpl(this._prefs);
 
   @override
-  Future<void> setString({
-    required String key,
-    required String value,
-  }) async {
+  Future<void> setString({required String key, required String value}) async {
     await _prefs.setString(key, value);
   }
 
   @override
-  String? getString({
-    required String key,
-  }) {
+  String? getString({required String key}) {
     return _prefs.getString(key);
   }
 
   @override
-  Future<void> setBool({
-    required String key,
-    required bool value,
-  }) async {
+  Future<void> setBool({required String key, required bool value}) async {
     await _prefs.setBool(key, value);
   }
 
   @override
-  bool? getBool({
-    required String key,
-  }) {
+  bool? getBool({required String key}) {
     return _prefs.getBool(key);
   }
 
   @override
-  Future<void> setInt({
-    required String key,
-    required int value,
-  }) async {
+  Future<void> setInt({required String key, required int value}) async {
     await _prefs.setInt(key, value);
   }
 
   @override
-  int? getInt({
-    required String key,
-  }) {
+  int? getInt({required String key}) {
     return _prefs.getInt(key);
   }
 
   @override
-  Future<void> setDouble({
-    required String key,
-    required double value,
-  }) async {
+  Future<void> setDouble({required String key, required double value}) async {
     await _prefs.setDouble(key, value);
   }
 
   @override
-  double? getDouble({
-    required String key,
-  }) {
+  double? getDouble({required String key}) {
     return _prefs.getDouble(key);
   }
 
@@ -77,9 +57,7 @@ class SharedPrefsServiceImpl implements SharedPrefsService {
   }
 
   @override
-  List<String>? getStringList({
-    required String key,
-  }) {
+  List<String>? getStringList({required String key}) {
     return _prefs.getStringList(key);
   }
 

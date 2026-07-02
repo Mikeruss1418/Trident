@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 extension FontStyleExtension on BuildContext {
@@ -47,16 +46,16 @@ extension StringCasingExtension on String {
   String toCapitalized() =>
       length > 0 ? '${this[0].toUpperCase()}${substring(1).toLowerCase()}' : '';
 
-  String toTitleCase() => replaceAll(RegExp(' +'), ' ')
-      .split(' ')
-      .map((str) => str.toCapitalized())
-      .join(' ');
+  String toTitleCase() => replaceAll(
+    RegExp(' +'),
+    ' ',
+  ).split(' ').map((str) => str.toCapitalized()).join(' ');
 
   String firstLetterCapitalized() =>
       length > 0 ? '${this[0].toUpperCase()}${substring(1).toLowerCase()}' : '';
 
-  String firstLetterEachWordCapitalized() => replaceAll(RegExp(' +'), ' ')
-      .split(' ')
-      .map((str) => str.firstLetterCapitalized())
-      .join(' ');
+  String firstLetterEachWordCapitalized() => replaceAll(
+    RegExp(' +'),
+    ' ',
+  ).split(' ').map((str) => str.firstLetterCapitalized()).join(' ');
 }

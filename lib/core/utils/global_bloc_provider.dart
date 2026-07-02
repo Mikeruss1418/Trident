@@ -10,9 +10,7 @@ interface class IAuthBlocProvider {
 }
 
 interface class IGlobalBlocProvider {
-  List<SingleChildWidget> get providers => [
-    ...IAuthBlocProvider().providers,
-  ];
+  List<SingleChildWidget> get providers => [...IAuthBlocProvider().providers];
 }
 
 class GlobalBlocProvider extends IGlobalBlocProvider {}

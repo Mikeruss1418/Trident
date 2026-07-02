@@ -1,4 +1,3 @@
-
 import 'package:trident/core/models/device_responsive/device_type_model.dart';
 
 class ResponsiveLayoutInfoModel {

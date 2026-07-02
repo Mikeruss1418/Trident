@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:injectable/injectable.dart';
-import 'package:trident/core/services/encrytion/vault_encryption/vault_encryption_service.dart';
+import 'package:trident/core/models/encryption/encrypted_blob_model.dart';
 import 'package:trident/core/storage/secure_storage/secure_storage_service.dart';
 import 'package:trident/core/storage/secured_storage_keys.dart';
 import 'package:trident/injectables/injectable.dart';
@@ -10,8 +10,8 @@ import 'package:trident/injectables/injectable.dart';
 /// All vault metadata needed to attempt an unlock.
 class VaultBlobs {
   final Uint8List salt;
-  final EncryptedBlob encryptedDekBlob;
-  final EncryptedBlob passwordVerifierBlob;
+  final EncryptedBlobModel encryptedDekBlob;
+  final EncryptedBlobModel passwordVerifierBlob;
 
   const VaultBlobs({
     required this.salt,
@@ -34,8 +34,8 @@ class VaultStorageService {
   /// saves the vault blobs in the secure storage
   Future<void> saveVaultBlobs({
     required Uint8List salt,
-    required EncryptedBlob encryptedDekBlob,
-    required EncryptedBlob passwordVerifierBlob,
+    required EncryptedBlobModel encryptedDekBlob,
+    required EncryptedBlobModel passwordVerifierBlob,
   }) async {
     // Delete first to ensure no stale partial state from a prior failed write
     // survives. On Android, writing over a key that exists from a different
@@ -59,7 +59,7 @@ class VaultStorageService {
   }
 
   /// Return null if vault has never been created.
-  /// 
+  ///
   /// Throws [VaultCorruptedException] if any field is missing.
   /// Caller (VaultRepository) decides whether to treat this as a fresh-start
   /// or surface an error to the user.
@@ -83,8 +83,8 @@ class VaultStorageService {
 
     return VaultBlobs(
       salt: _decode(results[0]!),
-      encryptedDekBlob: EncryptedBlob.validate(_decode(results[1]!)),
-      passwordVerifierBlob: EncryptedBlob.validate(_decode(results[2]!)),
+      encryptedDekBlob: EncryptedBlobModel.validate(_decode(results[1]!)),
+      passwordVerifierBlob: EncryptedBlobModel.validate(_decode(results[2]!)),
     );
   }
 

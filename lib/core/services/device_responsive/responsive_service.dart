@@ -11,8 +11,8 @@ class ResponsiveService {
     // 1. Determine Orientation
     final ScreenOrientation orientation =
         mediaQuery.orientation == Orientation.portrait
-            ? ScreenOrientation.portrait
-            : ScreenOrientation.landscape;
+        ? ScreenOrientation.portrait
+        : ScreenOrientation.landscape;
 
     // 2. Determine Physical Device Type (using shortestSide)
     final DeviceTypeEnum deviceType = mediaQuery.size.shortestSide < 600

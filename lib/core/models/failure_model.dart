@@ -36,7 +36,7 @@ class Failure {
       'message': message,
       'data': data,
       'status': status,
-      'timestamp': timestamp
+      'timestamp': timestamp,
     };
   }
 

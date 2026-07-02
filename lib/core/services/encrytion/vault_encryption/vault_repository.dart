@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:injectable/injectable.dart';
+import 'package:trident/core/models/encryption/encrypted_blob_model.dart';
 import 'package:trident/core/services/encrytion/vault_encryption/vault_encryption_service.dart';
 import 'package:trident/core/services/encrytion/vault_encryption/vault_storage_service.dart';
 
@@ -124,7 +125,7 @@ class VaultRepository {
   // -------------------------------------------------------------------------
 
   /// Encrypts [plaintext] with the in-memory DEK.
-  /// Returns serialized [EncryptedBlob] bytes ready for disk/Isar storage.
+  /// Returns serialized [EncryptedBlobModel] bytes ready for disk/Isar storage.
   ///
   /// Throws [StateError] if vault is locked.
   Future<Uint8List> encryptDocument(Uint8List plaintext) async {
@@ -138,7 +139,7 @@ class VaultRepository {
   /// Throws [StateError] if vault is locked.
   Future<Uint8List> decryptDocument(Uint8List encryptedBytes) async {
     _requireUnlocked();
-    final blob = EncryptedBlob.validate(encryptedBytes);
+    final blob = EncryptedBlobModel.validate(encryptedBytes);
     return _crypto.decryptDocument(blob, _dek!);
   }
 

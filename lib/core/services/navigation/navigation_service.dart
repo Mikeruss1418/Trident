@@ -73,21 +73,17 @@ class MyNavigatorObserver extends NavigatorObserver {
   final NavigationService _navigationService;
 
   MyNavigatorObserver({required NavigationService navigationService})
-      : _navigationService = navigationService;
+    : _navigationService = navigationService;
 
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPush(route, previousRoute);
-    _navigationService.addRoute(
-      route.settings.name ?? "",
-    );
+    _navigationService.addRoute(route.settings.name ?? "");
   }
 
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPop(route, previousRoute);
-    _navigationService.removeRoute(
-      route.settings.name ?? "",
-    );
+    _navigationService.removeRoute(route.settings.name ?? "");
   }
 }

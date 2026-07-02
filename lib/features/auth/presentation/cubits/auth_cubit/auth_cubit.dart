@@ -36,14 +36,7 @@ import 'package:trident/core/services/encrytion/vault_encryption/vault_repositor
 // ↓
 // authenticated
 
-
-
-enum AuthStatus {
-  onboarding,
-  unauthenticated,
-  authenticated,
-  vaultLocked,
-}
+enum AuthStatus { onboarding, unauthenticated, authenticated, vaultLocked }
 
 /// AuthCubit owns auth state transitions only.
 ///

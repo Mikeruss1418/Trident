@@ -88,10 +88,7 @@ class AppLogger {
       );
 
       if (additionalData != null) {
-        developer.log(
-          'Additional data: $additionalData',
-          name: 'AppLogger',
-        );
+        developer.log('Additional data: $additionalData', name: 'AppLogger');
       }
     }
 

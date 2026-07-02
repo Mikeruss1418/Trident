@@ -44,17 +44,20 @@ class SecureStorageServiceImpl implements SecureStorageService {
         if (verifyValue != null && verifyValue.isNotEmpty) {
           // If still exists, trying to delete again with all options
           AppLogger.warning(
-              'Token still exists after deletion for key: $key, attempting force delete');
+            'Token still exists after deletion for key: $key, attempting force delete',
+          );
           await _secureStorage.delete(
-              key: key,
-              aOptions: const AndroidOptions(),
-              iOptions: const IOSOptions());
+            key: key,
+            aOptions: const AndroidOptions(),
+            iOptions: const IOSOptions(),
+          );
 
           // Final verifying
           final finalValue = await _secureStorage.read(key: key);
           if (finalValue != null && finalValue.isNotEmpty) {
             AppLogger.error(
-                'Failed to delete secure data for key: $key. Value still exists: ${finalValue.substring(0, finalValue.length > 20 ? 20 : finalValue.length)}...');
+              'Failed to delete secure data for key: $key. Value still exists: ${finalValue.substring(0, finalValue.length > 20 ? 20 : finalValue.length)}...',
+            );
             throw Exception('Failed to delete secure data for key: $key');
           }
         }
@@ -77,7 +80,8 @@ class SecureStorageServiceImpl implements SecureStorageService {
       // On iOS, if we get an empty string, treating it as null (deleted)
       if (value != null && value.isEmpty) {
         AppLogger.warning(
-            'Found empty string for key: $key, treating as deleted');
+          'Found empty string for key: $key, treating as deleted',
+        );
         return null;
       }
       return value;
@@ -88,8 +92,10 @@ class SecureStorageServiceImpl implements SecureStorageService {
   }
 
   @override
-  Future<void> writeSecureData(
-      {required String key, required String value}) async {
+  Future<void> writeSecureData({
+    required String key,
+    required String value,
+  }) async {
     try {
       await _secureStorage.write(key: key, value: value);
       AppLogger.info('Successfully wrote secure data for key: $key');
@@ -109,7 +115,8 @@ class SecureStorageServiceImpl implements SecureStorageService {
 
     try {
       AppLogger.info(
-          'Force clearing token for key: $key (trying all iOS options)');
+        'Force clearing token for key: $key (trying all iOS options)',
+      );
 
       // Try deleting with synchronizable: false (current config)
       await _secureStorage.delete(

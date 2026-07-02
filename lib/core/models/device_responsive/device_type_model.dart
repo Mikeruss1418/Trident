@@ -1,7 +1,4 @@
-enum DeviceTypeEnum {
-  mobile,
-  tablet,
-}
+enum DeviceTypeEnum { mobile, tablet }
 
 enum ScreenOrientation { portrait, landscape }
 

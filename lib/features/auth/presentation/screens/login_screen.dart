@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trident/core/extensions/widget_extension.dart';
 import 'package:trident/core/routes/route_names.dart';
-import 'package:trident/core/services/encrytion/vault_encryption/vault_encryption_service.dart';
+import 'package:trident/core/services/encryption/vault_encryption/vault_encryption_service.dart';
 import 'package:trident/core/services/navigation/navigation_service.dart';
 import 'package:trident/core/utils/app_imports.dart';
 import 'package:trident/features/auth/presentation/cubits/auth_cubit/auth_cubit.dart';

@@ -14,12 +14,12 @@ import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:shared_preferences/shared_preferences.dart' as _i460;
 
-import '../core/services/encrytion/vault_encryption/vault_encryption_service.dart'
-    as _i454;
-import '../core/services/encrytion/vault_encryption/vault_repository.dart'
-    as _i910;
-import '../core/services/encrytion/vault_encryption/vault_storage_service.dart'
-    as _i107;
+import '../core/services/encryption/vault_encryption/vault_encryption_service.dart'
+    as _i607;
+import '../core/services/encryption/vault_encryption/vault_repository.dart'
+    as _i1014;
+import '../core/services/encryption/vault_encryption/vault_storage_service.dart'
+    as _i761;
 import '../core/services/navigation/navigation_service.dart' as _i648;
 import '../core/storage/secure_storage/secure_storage_module.dart' as _i478;
 import '../core/storage/secure_storage/secure_storage_service.dart' as _i21;
@@ -45,30 +45,30 @@ extension GetItInjectableX on _i174.GetIt {
       () => sharedPrefsModule.prefs,
       preResolve: true,
     );
-    gh.lazySingleton<_i454.VaultEncryptionService>(
-      () => _i454.VaultEncryptionService(),
+    gh.lazySingleton<_i607.VaultEncryptionService>(
+      () => _i607.VaultEncryptionService(),
     );
-    gh.lazySingleton<_i107.VaultStorageService>(
-      () => _i107.VaultStorageService(),
+    gh.lazySingleton<_i761.VaultStorageService>(
+      () => _i761.VaultStorageService(),
     );
     gh.lazySingleton<_i648.NavigationService>(() => _i648.NavigationService());
     gh.lazySingleton<_i558.FlutterSecureStorage>(
       () => secureStorageModule.secureprefs,
     );
-    gh.lazySingleton<_i910.VaultRepository>(
-      () => _i910.VaultRepository(
-        gh<_i454.VaultEncryptionService>(),
-        gh<_i107.VaultStorageService>(),
+    gh.lazySingleton<_i1014.VaultRepository>(
+      () => _i1014.VaultRepository(
+        gh<_i607.VaultEncryptionService>(),
+        gh<_i761.VaultStorageService>(),
       ),
-    );
-    gh.lazySingleton<_i280.AuthCubit>(
-      () => _i280.AuthCubit(gh<_i910.VaultRepository>()),
     );
     gh.lazySingleton<_i21.SecureStorageService>(
       () => _i332.SecureStorageServiceImpl(gh<_i558.FlutterSecureStorage>()),
     );
     gh.lazySingleton<_i376.SharedPrefsService>(
       () => _i723.SharedPrefsServiceImpl(gh<_i460.SharedPreferences>()),
+    );
+    gh.lazySingleton<_i280.AuthCubit>(
+      () => _i280.AuthCubit(gh<_i1014.VaultRepository>()),
     );
     return this;
   }

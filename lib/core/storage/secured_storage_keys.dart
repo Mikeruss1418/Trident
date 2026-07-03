@@ -1,8 +1,6 @@
 class SecureStorageKeys {
   SecureStorageKeys._();
 
-  /// ----[MASTER TOKEN]----
-  static const masterToken = 'master_token';
 
   /// ----[VAULT KEYS]-------
   static const salt = 'vault_salt';

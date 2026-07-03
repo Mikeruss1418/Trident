@@ -2,8 +2,8 @@ import 'dart:typed_data';
 
 import 'package:injectable/injectable.dart';
 import 'package:trident/core/models/encryption/encrypted_blob_model.dart';
-import 'package:trident/core/services/encrytion/vault_encryption/vault_encryption_service.dart';
-import 'package:trident/core/services/encrytion/vault_encryption/vault_storage_service.dart';
+import 'package:trident/core/services/encryption/vault_encryption/vault_encryption_service.dart';
+import 'package:trident/core/services/encryption/vault_encryption/vault_storage_service.dart';
 
 /// VaultRepository is the only class that holds the in-memory DEK.
 ///

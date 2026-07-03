@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
-import 'package:trident/core/services/encrytion/vault_encryption/vault_repository.dart';
+import 'package:trident/core/services/encryption/vault_encryption/vault_repository.dart';
 
 // User registered
 // ↓

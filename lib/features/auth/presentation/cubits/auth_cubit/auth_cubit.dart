@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
+import 'package:trident/core/services/biometric/biometric.dart';
 import 'package:trident/core/services/encryption/vault_encryption/vault_repository.dart';
 
 // User registered
@@ -50,8 +51,10 @@ enum AuthStatus { onboarding, unauthenticated, authenticated, vaultLocked }
 @lazySingleton
 class AuthCubit extends Cubit<AuthStatus> {
   final VaultRepository _vaultRepository;
+  final BiometricService _biometricService;
 
-  AuthCubit(this._vaultRepository) : super(AuthStatus.onboarding);
+  AuthCubit(this._vaultRepository, this._biometricService)
+      : super(AuthStatus.onboarding);
 
   // -------------------------------------------------------------------------
   // App startup
@@ -102,6 +105,56 @@ class AuthCubit extends Cubit<AuthStatus> {
     if (state != AuthStatus.vaultLocked) return;
     await _vaultRepository.unlockVault(masterPassword);
     emit(AuthStatus.authenticated);
+  }
+
+  // -------------------------------------------------------------------------
+  // Biometric methods
+  // -------------------------------------------------------------------------
+
+  /// Checks if biometric unlock is available on device
+  Future<bool> isBiometricAvailable() async {
+    return _biometricService.isAvailable();
+  }
+
+  /// Checks if biometric unlock is enabled for this vault
+  Future<bool> isBiometricEnabled() async {
+    return _vaultRepository.isBiometricEnabled();
+  }
+
+  /// Enables biometric unlock for the current vault
+  /// Requires vault to be unlocked (DEK in memory)
+  Future<void> enableBiometric() async {
+    await _vaultRepository.enableBiometric(biometricService: _biometricService);
+  }
+
+  /// Disables biometric unlock and clears biometric data
+  Future<void> disableBiometric() async {
+    await _vaultRepository.disableBiometric();
+  }
+
+  /// Attempts to unlock the vault using biometric authentication
+  /// Returns true on success, false on failure/cancellation
+  ///
+  /// Can be called from either [AuthStatus.vaultLocked] (after locking)
+  /// or [AuthStatus.unauthenticated] (after logout), since biometric data
+  /// persists in secure storage in both cases.
+  Future<bool> unlockWithBiometric({
+    String localizedReason = 'Unlock your Trident vault',I
+  }) async {
+    if (state != AuthStatus.vaultLocked &&
+        state != AuthStatus.unauthenticated) {
+      return false;
+    }
+
+    final success = await _vaultRepository.unlockWithBiometric(
+      biometricService: _biometricService,
+      localizedReason: localizedReason,
+    );
+
+    if (success) {
+      emit(AuthStatus.authenticated);
+    }
+    return success;
   }
 
   // -------------------------------------------------------------------------

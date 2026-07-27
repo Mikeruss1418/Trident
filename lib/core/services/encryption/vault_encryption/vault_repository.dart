@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart';
 import 'package:injectable/injectable.dart';
 import 'package:trident/core/models/encryption/encrypted_blob_model.dart';
+import 'package:trident/core/services/biometric/biometric.dart';
 import 'package:trident/core/services/encryption/vault_encryption/vault_encryption_service.dart';
 import 'package:trident/core/services/encryption/vault_encryption/vault_storage_service.dart';
 
@@ -119,6 +121,49 @@ class VaultRepository {
   // -------------------------------------------------------------------------
 
   Future<bool> vaultExists() => _storage.vaultExists();
+
+  // -------------------------------------------------------------------------
+  // Biometric methods
+  // -------------------------------------------------------------------------
+
+  /// Checks if biometric unlock is enabled for this vault
+  Future<bool> isBiometricEnabled() => _storage.isBiometricEnabled();
+
+  /// Enables biometric unlock for the current vault
+  /// Requires vault to be unlocked (DEK in memory)
+  Future<void> enableBiometric({
+    required BiometricService biometricService,
+  }) async {
+    _requireUnlocked();
+    await _storage.enableBiometric(
+      dek: _dek!,
+      biometricService: biometricService,
+    );
+  }
+
+  /// Disables biometric unlock and clears biometric data
+  Future<void> disableBiometric() async {
+    await _storage.disableBiometric();
+  }
+
+  /// Attempts to unlock the vault using biometric authentication
+  /// Returns true if successful, false otherwise
+  Future<bool> unlockWithBiometric({
+    required BiometricService biometricService,
+    String localizedReason = 'Unlock your Trident vault',
+  }) async {
+    final dek = await _storage.unlockWithBiometric(
+      biometricService: biometricService,
+
+      localizedReason: localizedReason,
+    );
+
+    if (dek != null) {
+      _dek = dek;
+      return true;
+    }
+    return false;
+  }
 
   // -------------------------------------------------------------------------
   // Document operations

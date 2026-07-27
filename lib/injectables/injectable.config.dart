@@ -14,6 +14,9 @@ import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:shared_preferences/shared_preferences.dart' as _i460;
 
+import '../core/services/biometric/biometric.dart' as _i222;
+import '../core/services/biometric/biometric_service.dart' as _i677;
+import '../core/services/biometric/biometric_service_impl.dart' as _i378;
 import '../core/services/encryption/vault_encryption/vault_encryption_service.dart'
     as _i607;
 import '../core/services/encryption/vault_encryption/vault_repository.dart'
@@ -55,6 +58,9 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i558.FlutterSecureStorage>(
       () => secureStorageModule.secureprefs,
     );
+    gh.lazySingleton<_i677.BiometricService>(
+      () => _i378.BiometricServiceImpl(),
+    );
     gh.lazySingleton<_i1014.VaultRepository>(
       () => _i1014.VaultRepository(
         gh<_i607.VaultEncryptionService>(),
@@ -68,7 +74,10 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i723.SharedPrefsServiceImpl(gh<_i460.SharedPreferences>()),
     );
     gh.lazySingleton<_i280.AuthCubit>(
-      () => _i280.AuthCubit(gh<_i1014.VaultRepository>()),
+      () => _i280.AuthCubit(
+        gh<_i1014.VaultRepository>(),
+        gh<_i222.BiometricService>(),
+      ),
     );
     return this;
   }

@@ -54,7 +54,7 @@ class AuthCubit extends Cubit<AuthStatus> {
   final BiometricService _biometricService;
 
   AuthCubit(this._vaultRepository, this._biometricService)
-      : super(AuthStatus.onboarding);
+    : super(AuthStatus.onboarding);
 
   // -------------------------------------------------------------------------
   // App startup
@@ -139,7 +139,8 @@ class AuthCubit extends Cubit<AuthStatus> {
   /// or [AuthStatus.unauthenticated] (after logout), since biometric data
   /// persists in secure storage in both cases.
   Future<bool> unlockWithBiometric({
-    String localizedReason = 'Unlock your Trident vault',I
+    String localizedReason = 'Unlock your Trident vault',
+    I,
   }) async {
     if (state != AuthStatus.vaultLocked &&
         state != AuthStatus.unauthenticated) {

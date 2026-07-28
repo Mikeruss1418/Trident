@@ -4,7 +4,7 @@ import 'package:injectable/injectable.dart';
 import 'package:trident/core/services/biometric/biometric_service.dart';
 import 'package:trident/core/utils/logger/app_logger.dart';
 
-@LazySingleton( as: BiometricService)
+@LazySingleton(as: BiometricService)
 class BiometricServiceImpl implements BiometricService {
   final LocalAuthentication _localAuth = LocalAuthentication();
 

@@ -69,7 +69,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       }
-      
     } catch (e) {
       _biometricEnabled.value = false;
       if (mounted) {

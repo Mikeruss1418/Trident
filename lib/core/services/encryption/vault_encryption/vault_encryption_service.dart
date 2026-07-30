@@ -55,21 +55,23 @@ class VaultEncryptionService {
     final salt = _randomBytes(_saltLength);
     final kek = await _deriveKek(masterPassword, salt);
 
-    // Random 256-bit DEK — this is what protects all documents.
-    final dek = _randomBytes(_keyLength);
+    try {
+      // Random 256-bit DEK — this is what protects all documents.
+      final dek = _randomBytes(_keyLength);
 
-    // Encrypt DEK and verifier with KEK.
-    final encryptedDekBlob = await _encrypt(kek, dek);
-    final passwordVerifierBlob = await _encrypt(kek, _verifierPlaintext);
+      // Encrypt DEK and verifier with KEK.
+      final encryptedDekBlob = await _encrypt(kek, dek);
+      final passwordVerifierBlob = await _encrypt(kek, _verifierPlaintext);
 
-    _zero(kek); // KEK is no longer needed
-
-    return VaultCreationResultModel(
-      salt: salt,
-      encryptedDekBlob: encryptedDekBlob,
-      passwordVerifierBlob: passwordVerifierBlob,
-      dek: dek,
-    );
+      return VaultCreationResultModel(
+        salt: salt,
+        encryptedDekBlob: encryptedDekBlob,
+        passwordVerifierBlob: passwordVerifierBlob,
+        dek: dek,
+      );
+    } finally {
+      _zero(kek); // KEK is no longer needed — guaranteed on every exit path
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -89,28 +91,28 @@ class VaultEncryptionService {
   }) async {
     final kek = await _deriveKek(masterPassword, salt);
 
-    // Verify password via the known plaintext verifier.
     try {
-      final decryptedVerifier = await _decrypt(kek, passwordVerifierBlob);
-      final matches = _constantTimeEquals(
-        decryptedVerifier,
-        _verifierPlaintext,
-      );
-      if (!matches) {
-        _zero(kek);
+      // Verify password via the known plaintext verifier.
+      try {
+        final decryptedVerifier = await _decrypt(kek, passwordVerifierBlob);
+        final matches = _constantTimeEquals(
+          decryptedVerifier,
+          _verifierPlaintext,
+        );
+        if (!matches) {
+          throw WrongPasswordException();
+        }
+      } on SecretBoxAuthenticationError {
+        // AES-GCM MAC verification failed — wrong password or tampered data.
         throw WrongPasswordException();
       }
-    } on SecretBoxAuthenticationError {
-      // AES-GCM MAC verification failed — wrong password or tampered data.
-      _zero(kek);
-      throw WrongPasswordException();
+
+      // Decrypt DEK.
+      final dek = await _decrypt(kek, encryptedDekBlob);
+      return dek;
+    } finally {
+      _zero(kek); // KEK is no longer needed — guaranteed on every exit path
     }
-
-    // Decrypt DEK.
-    final dek = await _decrypt(kek, encryptedDekBlob);
-    _zero(kek);
-
-    return dek;
   }
 
   // -------------------------------------------------------------------------

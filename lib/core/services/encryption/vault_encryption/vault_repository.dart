@@ -54,15 +54,18 @@ class VaultRepository {
         }
         // blobs == null despite vaultExists() → inconsistent state, wipe it.
         await _storage.deleteVaultMetadata();
+        await _storage.disableBiometric();
       } on StateError {
         rethrow; // propagate the intentional refusal above
       } on VaultCorruptedException {
         // Corrupted/empty metadata — primary path after RSA→AES migration
         // with 0 items. Wipe and proceed with fresh creation.
         await _storage.deleteVaultMetadata();
+        await _storage.disableBiometric();
       } catch (_) {
         // Any other storage error during the health check — wipe and retry.
         await _storage.deleteVaultMetadata();
+        await _storage.disableBiometric();
       }
     }
 

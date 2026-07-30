@@ -32,8 +32,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _checkBiometricEnabled() async {
-    final enabled = await getIt<AuthCubit>().isBiometricEnabled();
-    _isBiometricEnabled.value = enabled;
+    try {
+      final enabled = await getIt<AuthCubit>().isBiometricEnabled();
+      if (!mounted) return;
+      _isBiometricEnabled.value = enabled;
+    } catch (_) {
+      if (!mounted) return;
+      _isBiometricEnabled.value = false;
+    }
   }
 
   @override
@@ -54,8 +60,10 @@ class _LoginScreenState extends State<LoginScreen> {
       try {
         await getIt<AuthCubit>().login(_masterPasswordController.text);
       } on WrongPasswordException {
+        if (!mounted) return;
         _errorMessage.value = 'Wrong password, Provide the right one';
       } catch (e) {
+        if (!mounted) return;
         _errorMessage.value = "Something went wrong: ${e.toString()}";
       } finally {
         if (mounted) {
@@ -69,12 +77,14 @@ class _LoginScreenState extends State<LoginScreen> {
     final biometricService = getIt<BiometricService>();
     final available = await biometricService.isAvailable();
     if (!available) {
+      if (!mounted) return;
       _errorMessage.value = 'Biometric authentication not available';
       return;
     }
 
     final enabled = await getIt<AuthCubit>().isBiometricEnabled();
     if (!enabled) {
+      if (!mounted) return;
       _errorMessage.value = 'Biometric unlock is not enabled for this vault';
       return;
     }
@@ -88,6 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
             'Biometric authentication failed. Try again or use master password.';
       }
     } catch (e) {
+      if (!mounted) return;
       _errorMessage.value = "Something went wrong: ${e.toString()}";
     } finally {
       if (mounted) {
@@ -151,7 +162,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   _buildErrorWidget(),
                   20.verticalSpace,
                   _buildLoginBtn(),
-                  16.verticalSpace,
                   _buildBiometricBtn(),
                 ],
               ),
@@ -208,7 +218,11 @@ class _LoginScreenState extends State<LoginScreen> {
         return ValueListenableBuilder<bool>(
           valueListenable: _isBiometricLoading,
           builder: (_, isLoading, _) {
-            return OutlinedButton.icon(
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                16.verticalSpace,
+                OutlinedButton.icon(
               onPressed: isLoading ? null : _unlockWithBiometric,
               icon: isLoading
                   ? SizedBox(
@@ -226,7 +240,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 side: BorderSide(color: AppColors.primary),
                 foregroundColor: AppColors.primary,
               ),
-            );
+            ),
+          ],
+        );
           },
         );
       },
@@ -286,7 +302,7 @@ class _LoginScreenState extends State<LoginScreen> {
       builder: (_, _) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: .min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             TextWidget(title, textType: TextType.labelLarge),
             10.verticalSpace,

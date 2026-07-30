@@ -12,7 +12,8 @@ Internal documentation covering the current implementation, data flows, cryptogr
 4. [Key Hierarchy](#4-key-hierarchy)
 5. [Vault Lifecycle](#5-vault-lifecycle)
 6. [Authentication State Machine](#6-authentication-state-machine)
-7. [Storage Layer](#7-storage-layer)
+6A. [Authentication Flows](#6a-authentication-flows)
+7. [Storage Layer](#secure-storage)
 8. [Encrypted Blob Wire Format](#8-encrypted-blob-wire-format)
 9. [Routing &amp; Navigation](#9-routing--navigation)
 10. [Dependency Injection](#10-dependency-injection)
@@ -75,7 +76,7 @@ lib/
 │   │   │   └── biometric_service_impl.dart        # local_auth plugin wrapper
 │   │   ├── device_responsive/
 │   │   │   └── responsive_service.dart
-│   │   ├── encrytion/                  # NOTE: typo in folder name
+│   │   ├── encryption/
 │   │   │   └── vault_encryption/
 │   │   │       ├── vault_encryption_service.dart   # Core crypto engine
 │   │   │       ├── vault_repository.dart           # DEK lifecycle owner
@@ -144,18 +145,14 @@ lib/
 
 ### Implementation File
 
-**`core/services/encrytion/vault_encryption/vault_encryption_service.dart`**
+**`core/services/encryption/vault_encryption/vault_encryption_service.dart`**
 
 This is the cryptographic engine. It exposes:
 
 - `createVaultMaterial(password)` — full vault creation (salt, KEK, DEK, encrypted blobs)
-- `deriveKeK(password, salt)` — Argon2id key derivation
-- `encryptValue(kek, plaintext)` — AES-256-GCM encrypt
-- `decryptValue(kek, blob)` — AES-256-GCM decrypt
-- `createPasswordVerifier(kek)` — encrypt known plaintext
-- `verifyPassword(kek, verifierBlob)` — constant-time comparison
-- `encryptDocument(dek, plaintext)` — document encryption via DEK
-- `decryptDocument(dek, blob)` — document decryption via DEK
+- `unlockVault(masterPassword, salt, encryptedDekBlob, passwordVerifierBlob)` — derives KEK, verifies password, decrypts DEK
+- `encryptDocument(plaintext, dek)` — document encryption via DEK
+- `decryptDocument(blob, dek)` — document decryption via DEK
 
 ```mermaid
 flowchart TD
@@ -427,7 +424,8 @@ stateDiagram-v2
     onboarding --> authenticated: createVault
     unauthenticated --> authenticated: login
     authenticated --> vaultLocked: lockVault
-    vaultLocked --> authenticated: unlockVault (master password)
+    authenticated --> unauthenticated: logout
+    vaultLocked --> authenticated: unlockVault (master password, guarded)
     vaultLocked --> authenticated: unlockWithBiometric
     unauthenticated --> authenticated: unlockWithBiometric
     vaultLocked --> unauthenticated: logout
@@ -776,6 +774,8 @@ VaultStorageService.enableBiometric(dek, biometricService)  [vault_storage_servi
 
 **Security note:** The BUK is stored as raw bytes in `flutter_secure_storage`, which is backed by Android Keystore / iOS Keychain. The BUK is never derivable from the user's password — it's independently random. Even if an attacker compromises the master password, they cannot derive the BUK, and vice versa.
 
+**Important limitation:** The current implementation uses `local_auth` which returns only a boolean result. The biometric authentication (`biometricService.authenticate()`) is the access-control gate before reading the BUK and BUK-encrypted DEK from secure storage. However, since `local_auth` does not use OS-enforced cryptographic key release (CryptoObject), the BUK is not cryptographically bound to the biometric prompt. For higher-security applications, consider using `local_auth_crypto` or a native platform-channel implementation that releases the key through the biometric prompt.
+
 #### 6A.2.3 Biometric Disable
 
 **Trigger:** User toggles "Unlock with Biometric" switch OFF on `HomeScreen`.
@@ -917,7 +917,7 @@ LoginScreen._checkBiometricEnabled()                 [login_screen.dart:34]
 | **Key in memory**          | KEK: zeroed after use. DEK: held while unlocked          | BUK: zeroed immediately after use. DEK: held while unlocked |
 | **Data in secure storage** | salt, encrypted DEK, verifier                            | encrypted DEK (with BUK), BUK, enabled flag                 |
 | **Fallback**               | N/A (primary method)                                     | Falls back to master password on failure                    |
-| **State guard**            | None (can be called from unauthenticated or vaultLocked) | Guards for vaultLocked or unauthenticated only              |
+| **State guard**            | Guarded to vaultLocked only (does not work from authenticated) | Guards for vaultLocked or unauthenticated only              |
 
 ### 6A.4 File Reference Map
 
@@ -1008,9 +1008,7 @@ Used for simple app preferences.
 
 **Keys defined in `core/storage/shared_prefs_keys.dart`:**
 
-| Key            | Purpose                                    |
-| -------------- | ------------------------------------------ |
-| `isSignedUp` | Defined but**unused** in active code |
+No keys are currently defined. The file contains only a placeholder comment (`// sign up flag`) with no actual key constants.
 
 ### What Is NOT Implemented (Storage Layer)
 
@@ -1042,10 +1040,12 @@ flowchart LR
 
 ### Model Methods
 
-- `EncryptedBlobModel.fromBytes(Uint8List)` — parse wire format
-- `EncryptedBlobModel.parse(Uint8List)` — parse with validation
-- `EncryptedBlobModel.validate(Uint8List)` — validate min length (>= 28 bytes)
+- `EncryptedBlobModel(Uint8List)` — construct from wire format bytes
+- `EncryptedBlobModel.validate(Uint8List)` — validate min length (>= 28 bytes) and construct
 - `.bytes` — serialize back to wire format
+- `.nonce` — extract 12-byte nonce from wire format
+- `.mac` — extract 16-byte MAC from wire format
+- `.ciphertext` — extract ciphertext from wire format
 
 ---
 
@@ -1237,8 +1237,9 @@ flowchart LR
 
 ### Memory Safety
 
-- **KEK zeroing**: `_zero()` method overwrites `Uint8List` with zeros immediately after use
+- **KEK zeroing**: `_zero()` method overwrites `Uint8List` with zeros in `finally` blocks, guaranteeing cleanup on every exit path (success and failure)
 - **DEK lifetime**: Only exists in `VaultRepository._dek`; zeroed on `lockVault()`
+- **BUK zeroing**: Zeroed in `finally` block after biometric DEK decryption
 - **No plaintext persistence**: Decrypted data exists only in RAM during active operations
 
 ### Constant-Time Comparison

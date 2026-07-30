@@ -9,7 +9,6 @@ import 'package:trident/core/models/encryption/encrypted_blob_model.dart';
 import 'package:trident/core/services/biometric/biometric.dart';
 import 'package:trident/core/storage/secure_storage/secure_storage_service.dart';
 import 'package:trident/core/storage/secured_storage_keys.dart';
-import 'package:trident/injectables/injectable.dart';
 
 /// All vault metadata needed to attempt an unlock.
 class VaultBlobs {
@@ -26,9 +25,13 @@ class VaultBlobs {
 
 @lazySingleton
 class VaultStorageService {
+  final SecureStorageService _secureStorage;
+
+  VaultStorageService(this._secureStorage);
+
   /// to verify if the vault exists or not
   Future<bool> vaultExists() async {
-    final value = await getIt<SecureStorageService>().readSecureData(
+    final value = await _secureStorage.readSecureData(
       key: SecureStorageKeys.salt,
     );
 
@@ -47,15 +50,15 @@ class VaultStorageService {
     await deleteVaultMetadata();
 
     await Future.wait([
-      getIt<SecureStorageService>().writeSecureData(
+      _secureStorage.writeSecureData(
         key: SecureStorageKeys.salt,
         value: _encode(salt),
       ),
-      getIt<SecureStorageService>().writeSecureData(
+      _secureStorage.writeSecureData(
         key: SecureStorageKeys.encryptedDEKBlob,
         value: _encode(encryptedDekBlob.bytes),
       ),
-      getIt<SecureStorageService>().writeSecureData(
+      _secureStorage.writeSecureData(
         key: SecureStorageKeys.passwordVerifierBlob,
         value: _encode(passwordVerifierBlob.bytes),
       ),
@@ -71,11 +74,11 @@ class VaultStorageService {
     if (!await vaultExists()) return null;
 
     final results = await Future.wait([
-      getIt<SecureStorageService>().readSecureData(key: SecureStorageKeys.salt),
-      getIt<SecureStorageService>().readSecureData(
+      _secureStorage.readSecureData(key: SecureStorageKeys.salt),
+      _secureStorage.readSecureData(
         key: SecureStorageKeys.encryptedDEKBlob,
       ),
-      getIt<SecureStorageService>().readSecureData(
+      _secureStorage.readSecureData(
         key: SecureStorageKeys.passwordVerifierBlob,
       ),
     ]);
@@ -94,13 +97,13 @@ class VaultStorageService {
 
   Future<void> deleteVaultMetadata() async {
     await Future.wait([
-      getIt<SecureStorageService>().deleteSecureData(
+      _secureStorage.deleteSecureData(
         key: SecureStorageKeys.salt,
       ),
-      getIt<SecureStorageService>().deleteSecureData(
+      _secureStorage.deleteSecureData(
         key: SecureStorageKeys.encryptedDEKBlob,
       ),
-      getIt<SecureStorageService>().deleteSecureData(
+      _secureStorage.deleteSecureData(
         key: SecureStorageKeys.passwordVerifierBlob,
       ),
     ]);
@@ -112,7 +115,7 @@ class VaultStorageService {
 
   /// Checks if biometric unlock is enabled for this vault
   Future<bool> isBiometricEnabled() async {
-    final value = await getIt<SecureStorageService>().readSecureData(
+    final value = await _secureStorage.readSecureData(
       key: SecureStorageKeys.biometricEnabled,
     );
     return value == 'true';
@@ -123,6 +126,10 @@ class VaultStorageService {
     required Uint8List dek,
     required BiometricService biometricService,
   }) async {
+    // Clear any existing biometric metadata before writing new configuration
+    // to prevent stale state from a previous vault or partial write.
+    await disableBiometric();
+
     // Generate a random biometric unlock key (BUK)
     final buk = _randomBytes(32);
 
@@ -131,15 +138,15 @@ class VaultStorageService {
 
     // Store encrypted DEK and BUK
     await Future.wait([
-      getIt<SecureStorageService>().writeSecureData(
+      _secureStorage.writeSecureData(
         key: SecureStorageKeys.biometricEncryptedDEK,
         value: _encode(encryptedDek.bytes),
       ),
-      getIt<SecureStorageService>().writeSecureData(
+      _secureStorage.writeSecureData(
         key: SecureStorageKeys.biometricUnlockKey,
         value: _encode(buk),
       ),
-      getIt<SecureStorageService>().writeSecureData(
+      _secureStorage.writeSecureData(
         key: SecureStorageKeys.biometricEnabled,
         value: 'true',
       ),
@@ -149,13 +156,13 @@ class VaultStorageService {
   /// Disables biometric unlock and clears biometric data
   Future<void> disableBiometric() async {
     await Future.wait([
-      getIt<SecureStorageService>().deleteSecureData(
+      _secureStorage.deleteSecureData(
         key: SecureStorageKeys.biometricEnabled,
       ),
-      getIt<SecureStorageService>().deleteSecureData(
+      _secureStorage.deleteSecureData(
         key: SecureStorageKeys.biometricEncryptedDEK,
       ),
-      getIt<SecureStorageService>().deleteSecureData(
+      _secureStorage.deleteSecureData(
         key: SecureStorageKeys.biometricUnlockKey,
       ),
     ]);
@@ -184,10 +191,10 @@ class VaultStorageService {
 
     // Read biometric data
     final results = await Future.wait([
-      getIt<SecureStorageService>().readSecureData(
+      _secureStorage.readSecureData(
         key: SecureStorageKeys.biometricEncryptedDEK,
       ),
-      getIt<SecureStorageService>().readSecureData(
+      _secureStorage.readSecureData(
         key: SecureStorageKeys.biometricUnlockKey,
       ),
     ]);
@@ -199,13 +206,14 @@ class VaultStorageService {
     final encryptedDekBlob = EncryptedBlobModel.validate(_decode(results[0]!));
     final buk = _decode(results[1]!);
 
-    // Decrypt DEK with BUK
-    final dek = await _decryptWithKey(buk, encryptedDekBlob);
-
-    // Zero the BUK after use
-    _zero(buk);
-
-    return dek;
+    try {
+      // Decrypt DEK with BUK
+      final dek = await _decryptWithKey(buk, encryptedDekBlob);
+      return dek;
+    } finally {
+      // Zero the BUK after use — guaranteed on every exit path
+      _zero(buk);
+    }
   }
 
   // =========================================================================

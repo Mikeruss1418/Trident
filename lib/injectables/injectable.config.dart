@@ -51,9 +51,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i607.VaultEncryptionService>(
       () => _i607.VaultEncryptionService(),
     );
-    gh.lazySingleton<_i761.VaultStorageService>(
-      () => _i761.VaultStorageService(),
-    );
     gh.lazySingleton<_i648.NavigationService>(() => _i648.NavigationService());
     gh.lazySingleton<_i558.FlutterSecureStorage>(
       () => secureStorageModule.secureprefs,
@@ -69,6 +66,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i21.SecureStorageService>(
       () => _i332.SecureStorageServiceImpl(gh<_i558.FlutterSecureStorage>()),
+    );
+    gh.lazySingleton<_i761.VaultStorageService>(
+      () => _i761.VaultStorageService(gh<_i21.SecureStorageService>()),
     );
     gh.lazySingleton<_i376.SharedPrefsService>(
       () => _i723.SharedPrefsServiceImpl(gh<_i460.SharedPreferences>()),

@@ -40,11 +40,14 @@ class BiometricServiceImpl implements BiometricService {
       return await _localAuth.authenticate(
         localizedReason: localizedReason,
         biometricOnly: true,
+        sensitiveTransaction: true,
+        persistAcrossBackgrounding: stickyAuth,
       );
     } on PlatformException catch (e, _) {
       AppLogger.debug('BiometricAuth failed: ${e.code} — ${e.message}');
-      // rethrow during debugging, swallow again once you've root-caused it
-      rethrow;
+      // Return false instead of rethrowing — biometric auth failure should
+      // not crash the app, it should just report authentication failure.
+      return false;
     }
   }
 

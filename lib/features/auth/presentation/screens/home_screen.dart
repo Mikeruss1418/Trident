@@ -1,6 +1,4 @@
 import 'package:trident/core/routes/route_names.dart';
-import 'package:trident/core/services/biometric/biometric.dart';
-import 'package:trident/core/services/encryption/vault_encryption/vault_repository.dart';
 import 'package:trident/core/services/navigation/navigation_service.dart';
 import 'package:trident/core/utils/app_imports.dart';
 import 'package:trident/features/auth/presentation/cubits/auth_cubit/auth_cubit.dart';
@@ -23,24 +21,29 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _checkBiometricStatus() async {
-    final repo = getIt<VaultRepository>();
-    final enabled = await repo.isBiometricEnabled();
-    _biometricEnabled.value = enabled;
+    try {
+      final enabled = await getIt<AuthCubit>().isBiometricEnabled();
+      if (!mounted) return;
+      _biometricEnabled.value = enabled;
+    } catch (_) {
+      if (!mounted) return;
+      _biometricEnabled.value = false;
+    }
   }
 
   Future<void> _toggleBiometric(bool enable) async {
     if (enable) {
-      _enableBiometric();
+      await _enableBiometric();
     } else {
-      _disableBiometric();
+      await _disableBiometric();
     }
   }
 
   Future<void> _enableBiometric() async {
     _isLoadingBiometric.value = true;
     try {
-      final biometricService = getIt<BiometricService>();
-      final available = await biometricService.isAvailable();
+      final authCubit = getIt<AuthCubit>();
+      final available = await authCubit.isBiometricAvailable();
       if (!available) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -56,9 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      await getIt<VaultRepository>().enableBiometric(
-        biometricService: biometricService,
-      );
+      await authCubit.enableBiometric();
       _biometricEnabled.value = true;
 
       if (mounted) {
@@ -69,12 +70,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       }
-    } catch (e) {
+    } catch (_) {
       _biometricEnabled.value = false;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to enable biometric: $e'),
+          const SnackBar(
+            content: Text('Failed to enable biometric. Please try again.'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -87,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _disableBiometric() async {
     _isLoadingBiometric.value = true;
     try {
-      await getIt<VaultRepository>().disableBiometric();
+      await getIt<AuthCubit>().disableBiometric();
       _biometricEnabled.value = false;
 
       if (mounted) {
@@ -98,11 +99,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to disable biometric: $e'),
+          const SnackBar(
+            content: Text('Failed to disable biometric. Please try again.'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -115,6 +116,13 @@ class _HomeScreenState extends State<HomeScreen> {
   void _lockVault() {
     getIt<AuthCubit>().lockVault();
     getIt<NavigationService>().pushAndRemoveUntil(RouteNames.loginRoute);
+  }
+
+  @override
+  void dispose() {
+    _biometricEnabled.dispose();
+    _isLoadingBiometric.dispose();
+    super.dispose();
   }
 
   @override
@@ -207,41 +215,46 @@ class _HomeScreenState extends State<HomeScreen> {
                         return ValueListenableBuilder<bool>(
                           valueListenable: _isLoadingBiometric,
                           builder: (_, loading, _) {
-                            return SwitchListTile(
-                              title: TextWidget(
-                                'Unlock with Biometric',
-                                textType: TextType.bodyLarge,
-                              ),
-                              subtitle: TextWidget(
-                                enabled
-                                    ? 'Face ID / Fingerprint enabled'
-                                    : 'Use master password only',
-                                textType: TextType.bodySmall,
-                                color: AppColors.textSecondary,
-                              ),
-                              value: enabled,
-                              onChanged: loading ? null : _toggleBiometric,
-                              activeThumbColor: AppColors.primary,
-                              inactiveThumbColor: AppColors.textSecondary,
-                              inactiveTrackColor: AppColors.surfaceElevated,
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SwitchListTile(
+                                  title: TextWidget(
+                                    'Unlock with Biometric',
+                                    textType: TextType.bodyLarge,
+                                  ),
+                                  subtitle: TextWidget(
+                                    enabled
+                                        ? 'Face ID / Fingerprint enabled'
+                                        : 'Use master password only',
+                                    textType: TextType.bodySmall,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                  value: enabled,
+                                  onChanged: loading ? null : _toggleBiometric,
+                                  activeThumbColor: AppColors.primary,
+                                  inactiveThumbColor: AppColors.textSecondary,
+                                  inactiveTrackColor: AppColors.surfaceElevated,
+                                ),
+                                if (loading) ...[
+                                  8.verticalSpace,
+                                  Center(
+                                    child: SizedBox(
+                                      width: 20.w,
+                                      height: 20.h,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             );
                           },
                         );
                       },
                     ),
-                    if (_isLoadingBiometric.value) ...[
-                      8.verticalSpace,
-                      Center(
-                        child: SizedBox(
-                          width: 20.w,
-                          height: 20.h,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
                     8.verticalSpace,
                     TextWidget(
                       'Biometric data never leaves your device. The vault key is encrypted with a key protected by your device\'s secure hardware.',

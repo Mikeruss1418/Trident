@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
 import 'package:injectable/injectable.dart';
 import 'package:trident/core/models/encryption/encrypted_blob_model.dart';
 import 'package:trident/core/services/biometric/biometric.dart';
@@ -63,9 +62,7 @@ class VaultRepository {
         await _storage.deleteVaultMetadata();
         await _storage.disableBiometric();
       } catch (_) {
-        // Any other storage error during the health check — wipe and retry.
-        await _storage.deleteVaultMetadata();
-        await _storage.disableBiometric();
+        rethrow;
       }
     }
 

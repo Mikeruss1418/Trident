@@ -4,6 +4,7 @@ import 'package:trident/core/routes/route_names.dart';
 import 'package:trident/core/services/navigation/navigation_service.dart';
 import 'package:trident/core/utils/logger/app_logger.dart';
 import 'package:trident/features/auth/presentation/cubits/auth_cubit/auth_cubit.dart';
+import 'package:trident/features/auth/presentation/screens/delete_account_screen.dart';
 import 'package:trident/features/auth/presentation/screens/home_screen.dart';
 import 'package:trident/features/auth/presentation/screens/login_screen.dart';
 import 'package:trident/features/auth/presentation/screens/sign_up_screen.dart';
@@ -67,6 +68,20 @@ class RouteConfig {
         path: RouteNames.loginRoute,
         name: RouteNames.loginRoute,
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.deleteAccountRoute,
+        name: RouteNames.deleteAccountRoute,
+        redirect: (context, state) {
+          // Only allow access when authenticated — you must be logged in
+          // to delete your vault.
+          final authState = getIt<AuthCubit>().state;
+          if (authState != AuthStatus.authenticated) {
+            return RouteNames.loginRoute;
+          }
+          return null;
+        },
+        builder: (context, state) => const DeleteAccountScreen(),
       ),
     ],
   );

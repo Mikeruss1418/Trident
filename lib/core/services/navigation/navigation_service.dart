@@ -72,8 +72,7 @@ class NavigationService {
 class MyNavigatorObserver extends NavigatorObserver {
   final NavigationService _navigationService;
 
-  MyNavigatorObserver({required NavigationService navigationService})
-    : _navigationService = navigationService;
+  MyNavigatorObserver({required this._navigationService});
 
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {

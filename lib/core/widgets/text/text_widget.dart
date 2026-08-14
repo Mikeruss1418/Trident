@@ -1,4 +1,3 @@
-import 'package:trident/core/constants/app_colors.dart';
 import 'package:trident/core/extensions/app_extensions.dart';
 import 'package:trident/core/utils/app_imports.dart';
 

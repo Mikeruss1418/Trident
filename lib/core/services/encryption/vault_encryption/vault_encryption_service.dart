@@ -5,6 +5,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:injectable/injectable.dart';
 import 'package:trident/core/models/encryption/encrypted_blob_model.dart';
 import 'package:trident/core/models/encryption/vault_creation_result_model.dart';
+import 'package:trident/core/utils/logger/app_logger.dart';
 
 @lazySingleton
 class VaultEncryptionService {
@@ -52,24 +53,41 @@ class VaultEncryptionService {
   Future<VaultCreationResultModel> createVaultMaterial(
     String masterPassword,
   ) async {
+    AppLogger.debug('createVaultMaterial: starting vault material creation');
     final salt = _randomBytes(_saltLength);
     final kek = await _deriveKek(masterPassword, salt);
+    AppLogger.debug('createVaultMaterial: KEK derived, salt generated (${salt.length} bytes)');
 
-    // Random 256-bit DEK — this is what protects all documents.
-    final dek = _randomBytes(_keyLength);
+    try {
+      // Random 256-bit DEK — this is what protects all documents.
+      final dek = _randomBytes(_keyLength);
+      AppLogger.debug('createVaultMaterial: DEK generated (${dek.length} bytes)');
 
-    // Encrypt DEK and verifier with KEK.
-    final encryptedDekBlob = await _encrypt(kek, dek);
-    final passwordVerifierBlob = await _encrypt(kek, _verifierPlaintext);
+      // Encrypt DEK and verifier with KEK.
+      final encryptedDekBlob = await _encrypt(kek, dek);
+      AppLogger.debug('createVaultMaterial: DEK encrypted with KEK (${encryptedDekBlob.bytes.length} bytes)');
 
-    _zero(kek); // KEK is no longer needed
+      final passwordVerifierBlob = await _encrypt(kek, _verifierPlaintext);
+      AppLogger.debug('createVaultMaterial: password verifier created (${passwordVerifierBlob.bytes.length} bytes)');
 
-    return VaultCreationResultModel(
-      salt: salt,
-      encryptedDekBlob: encryptedDekBlob,
-      passwordVerifierBlob: passwordVerifierBlob,
-      dek: dek,
-    );
+      return VaultCreationResultModel(
+        salt: salt,
+        encryptedDekBlob: encryptedDekBlob,
+        passwordVerifierBlob: passwordVerifierBlob,
+        dek: dek,
+      );
+    } catch (e, st) {
+      AppLogger.errorWithContext(
+        'createVaultMaterial failed',
+        context: 'VaultEncryptionService',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    } finally {
+      _zero(kek); // KEK is no longer needed — guaranteed on every exit path
+      AppLogger.debug('createVaultMaterial: KEK zeroed from memory');
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -87,30 +105,44 @@ class VaultEncryptionService {
     required EncryptedBlobModel encryptedDekBlob,
     required EncryptedBlobModel passwordVerifierBlob,
   }) async {
+    AppLogger.debug('unlockVault: deriving KEK from password');
     final kek = await _deriveKek(masterPassword, salt);
+    AppLogger.debug('unlockVault: KEK derived successfully');
 
-    // Verify password via the known plaintext verifier.
     try {
-      final decryptedVerifier = await _decrypt(kek, passwordVerifierBlob);
-      final matches = _constantTimeEquals(
-        decryptedVerifier,
-        _verifierPlaintext,
-      );
-      if (!matches) {
-        _zero(kek);
+      // Verify password via the known plaintext verifier.
+      try {
+        final decryptedVerifier = await _decrypt(kek, passwordVerifierBlob);
+        final matches = _constantTimeEquals(
+          decryptedVerifier,
+          _verifierPlaintext,
+        );
+        if (!matches) {
+          AppLogger.warning('unlockVault: password verification failed (plaintext mismatch)');
+          throw WrongPasswordException();
+        }
+      } on SecretBoxAuthenticationError {
+        // AES-GCM MAC verification failed — wrong password or tampered data.
+        AppLogger.warning('unlockVault: password verification failed (MAC error)');
         throw WrongPasswordException();
       }
-    } on SecretBoxAuthenticationError {
-      // AES-GCM MAC verification failed — wrong password or tampered data.
-      _zero(kek);
-      throw WrongPasswordException();
+
+      // Decrypt DEK.
+      final dek = await _decrypt(kek, encryptedDekBlob);
+      AppLogger.debug('unlockVault: DEK decrypted successfully, returning to caller');
+      return dek;
+    } catch (e, st) {
+      AppLogger.errorWithContext(
+        'unlockVault failed',
+        context: 'VaultEncryptionService',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    } finally {
+      _zero(kek); // KEK is no longer needed — guaranteed on every exit path
+      AppLogger.debug('unlockVault: KEK zeroed from memory');
     }
-
-    // Decrypt DEK.
-    final dek = await _decrypt(kek, encryptedDekBlob);
-    _zero(kek);
-
-    return dek;
   }
 
   // -------------------------------------------------------------------------
@@ -123,7 +155,10 @@ class VaultEncryptionService {
     Uint8List plaintext,
     Uint8List dek,
   ) async {
-    return _encrypt(dek, plaintext);
+    AppLogger.debug('encryptDocument: encrypting ${plaintext.length} bytes with DEK');
+    final blob = await _encrypt(dek, plaintext);
+    AppLogger.debug('encryptDocument: encryption complete, blob size ${blob.bytes.length} bytes');
+    return blob;
   }
 
   /// Decrypts [blob] with the in-memory [dek].
@@ -131,7 +166,20 @@ class VaultEncryptionService {
     EncryptedBlobModel blob,
     Uint8List dek,
   ) async {
-    return _decrypt(dek, blob);
+    AppLogger.debug('decryptDocument: decrypting ${blob.bytes.length} byte blob with DEK');
+    try {
+      final plaintext = await _decrypt(dek, blob);
+      AppLogger.debug('decryptDocument: decryption successful, plaintext ${plaintext.length} bytes');
+      return plaintext;
+    } catch (e, st) {
+      AppLogger.errorWithContext(
+        'decryptDocument failed',
+        context: 'VaultEncryptionService',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   // -------------------------------------------------------------------------

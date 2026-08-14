@@ -3,4 +3,5 @@ class RouteNames {
   static const String homeRoute = '/home';
   static const String signUpRoute = '/sign-up';
   static const String loginRoute = '/login';
+  static const String deleteAccountRoute = '/delete-account';
 }

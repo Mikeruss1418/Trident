@@ -27,7 +27,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final enabled = await getIt<AuthCubit>().isBiometricEnabled();
       if (!mounted) return;
       _biometricEnabled.value = enabled;
-      AppLogger.debug('HomeScreen._checkBiometricStatus: biometric enabled=$enabled');
+      AppLogger.debug(
+        'HomeScreen._checkBiometricStatus: biometric enabled=$enabled',
+      );
     } catch (e, st) {
       AppLogger.errorWithContext(
         'HomeScreen._checkBiometricStatus failed',
@@ -41,7 +43,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _toggleBiometric(bool enable) async {
-    AppLogger.debug('HomeScreen._toggleBiometric: toggling biometric to $enable');
+    AppLogger.debug(
+      'HomeScreen._toggleBiometric: toggling biometric to $enable',
+    );
     if (enable) {
       await _enableBiometric();
     } else {
@@ -50,7 +54,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _enableBiometric() async {
-    AppLogger.debug('HomeScreen._enableBiometric: starting biometric enable flow');
+    AppLogger.debug(
+      'HomeScreen._enableBiometric: starting biometric enable flow',
+    );
     _isLoadingBiometric.value = true;
     try {
       final authCubit = getIt<AuthCubit>();
@@ -72,7 +78,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       await authCubit.enableBiometric();
       _biometricEnabled.value = true;
-      AppLogger.debug('HomeScreen._enableBiometric: biometric enabled successfully');
+      AppLogger.debug(
+        'HomeScreen._enableBiometric: biometric enabled successfully',
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -98,12 +106,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _disableBiometric() async {
-    AppLogger.debug('HomeScreen._disableBiometric: starting biometric disable flow');
+    AppLogger.debug(
+      'HomeScreen._disableBiometric: starting biometric disable flow',
+    );
     _isLoadingBiometric.value = true;
     try {
       await getIt<AuthCubit>().disableBiometric();
       _biometricEnabled.value = false;
-      AppLogger.debug('HomeScreen._disableBiometric: biometric disabled successfully');
+      AppLogger.debug(
+        'HomeScreen._disableBiometric: biometric disabled successfully',
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -128,7 +140,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _lockVault() {
-    AppLogger.debug('HomeScreen._lockVault: locking vault and navigating to login');
+    AppLogger.debug(
+      'HomeScreen._lockVault: locking vault and navigating to login',
+    );
     getIt<AuthCubit>().lockVault();
     getIt<NavigationService>().pushAndRemoveUntil(RouteNames.loginRoute);
   }
@@ -154,200 +168,233 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: ScreenPadding(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            20.verticalSpace,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              20.verticalSpace,
 
-            /// Vault Status
-            Card(
-              child: Padding(
-                padding: EdgeInsets.all(16.r),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.security_outlined,
-                          color: AppColors.primary,
-                          size: 24.sp,
-                        ),
-                        12.horizontalSpace,
-                        TextWidget(
-                          'Vault Status',
-                          textType: TextType.titleLarge,
-                          color: AppColors.textPrimary,
-                        ),
-                      ],
-                    ),
-                    16.verticalSpace,
-                    _StatusRow(
-                      label: 'Status',
-                      value: 'Unlocked',
-                      valueColor: AppColors.success,
-                    ),
-                    8.verticalSpace,
-                    _StatusRow(label: 'Encryption', value: 'AES-256-GCM'),
-                    8.verticalSpace,
-                    _StatusRow(
-                      label: 'Key Derivation',
-                      value: 'Argon2id (64MB, 3 iter)',
-                    ),
-                  ],
+              /// Vault Status
+              Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16.r),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.security_outlined,
+                            color: AppColors.primary,
+                            size: 24.sp,
+                          ),
+                          12.horizontalSpace,
+                          TextWidget(
+                            'Vault Status',
+                            textType: TextType.titleLarge,
+                            color: AppColors.textPrimary,
+                          ),
+                        ],
+                      ),
+                      16.verticalSpace,
+                      _StatusRow(
+                        label: 'Status',
+                        value: 'Unlocked',
+                        valueColor: AppColors.success,
+                      ),
+                      8.verticalSpace,
+                      _StatusRow(label: 'Encryption', value: 'AES-256-GCM'),
+                      8.verticalSpace,
+                      _StatusRow(
+                        label: 'Key Derivation',
+                        value: 'Argon2id (64MB, 3 iter)',
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            24.verticalSpace,
+              24.verticalSpace,
 
-            /// Biometric Settings
-            Card(
-              child: Padding(
-                padding: EdgeInsets.all(16.r),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.fingerprint,
-                          color: AppColors.primary,
-                          size: 24.sp,
-                        ),
-                        12.horizontalSpace,
-                        TextWidget(
-                          'Biometric Unlock',
-                          textType: TextType.titleLarge,
-                          color: AppColors.textPrimary,
-                        ),
-                      ],
-                    ),
-                    16.verticalSpace,
-                    ValueListenableBuilder<bool>(
-                      valueListenable: _biometricEnabled,
-                      builder: (_, enabled, _) {
-                        return ValueListenableBuilder<bool>(
-                          valueListenable: _isLoadingBiometric,
-                          builder: (_, loading, _) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SwitchListTile(
-                                  title: TextWidget(
-                                    'Unlock with Biometric',
-                                    textType: TextType.bodyLarge,
+              /// Biometric Settings
+              Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16.r),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.fingerprint,
+                            color: AppColors.primary,
+                            size: 24.sp,
+                          ),
+                          12.horizontalSpace,
+                          TextWidget(
+                            'Biometric Unlock',
+                            textType: TextType.titleLarge,
+                            color: AppColors.textPrimary,
+                          ),
+                        ],
+                      ),
+                      16.verticalSpace,
+                      ValueListenableBuilder<bool>(
+                        valueListenable: _biometricEnabled,
+                        builder: (_, enabled, _) {
+                          return ValueListenableBuilder<bool>(
+                            valueListenable: _isLoadingBiometric,
+                            builder: (_, loading, _) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SwitchListTile(
+                                    title: TextWidget(
+                                      'Unlock with Biometric',
+                                      textType: TextType.bodyLarge,
+                                    ),
+                                    subtitle: TextWidget(
+                                      enabled
+                                          ? 'Face ID / Fingerprint enabled'
+                                          : 'Use master password only',
+                                      textType: TextType.bodySmall,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    value: enabled,
+                                    onChanged: loading
+                                        ? null
+                                        : _toggleBiometric,
+                                    activeThumbColor: AppColors.primary,
+                                    inactiveThumbColor: AppColors.textSecondary,
+                                    inactiveTrackColor:
+                                        AppColors.surfaceElevated,
                                   ),
-                                  subtitle: TextWidget(
-                                    enabled
-                                        ? 'Face ID / Fingerprint enabled'
-                                        : 'Use master password only',
-                                    textType: TextType.bodySmall,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                  value: enabled,
-                                  onChanged: loading ? null : _toggleBiometric,
-                                  activeThumbColor: AppColors.primary,
-                                  inactiveThumbColor: AppColors.textSecondary,
-                                  inactiveTrackColor: AppColors.surfaceElevated,
-                                ),
-                                if (loading) ...[
-                                  8.verticalSpace,
-                                  Center(
-                                    child: SizedBox(
-                                      width: 20.w,
-                                      height: 20.h,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: AppColors.primary,
+                                  if (loading) ...[
+                                    8.verticalSpace,
+                                    Center(
+                                      child: SizedBox(
+                                        width: 20.w,
+                                        height: 20.h,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppColors.primary,
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                  ],
                                 ],
-                              ],
-                            );
-                          },
-                        );
-                      },
-                    ),
-                    8.verticalSpace,
-                    TextWidget(
-                      'Biometric data never leaves your device. The vault key is encrypted with a key protected by your device\'s secure hardware.',
-                      textType: TextType.bodySmall,
-                      color: AppColors.textSecondary,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            24.verticalSpace,
-
-            /// Actions
-            Card(
-              child: Padding(
-                padding: EdgeInsets.all(16.r),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.folder_outlined,
-                          color: AppColors.primary,
-                          size: 24.sp,
-                        ),
-                        12.horizontalSpace,
-                        TextWidget(
-                          'Vault Actions',
-                          textType: TextType.titleLarge,
-                          color: AppColors.textPrimary,
-                        ),
-                      ],
-                    ),
-                    16.verticalSpace,
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.lock_outline),
-                        label: TextWidget(
-                          'Lock Vault',
-                          color: AppColors.textPrimary,
-                        ),
-                        onPressed: _lockVault,
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: AppColors.primary),
-                          padding: EdgeInsets.symmetric(vertical: 14.h),
-                        ),
-                      ),
-                    ),
-                    12.verticalSpace,
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        icon: const Icon(Icons.logout),
-                        label: TextWidget(
-                          'Logout',
-                          color: AppColors.background,
-                        ),
-                        onPressed: () {
-                          AppLogger.debug('HomeScreen.logout: logging out');
-                          getIt<AuthCubit>().logout();
-                          getIt<NavigationService>().pushAndRemoveUntil(
-                            RouteNames.loginRoute,
+                              );
+                            },
                           );
                         },
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.error,
-                          padding: EdgeInsets.symmetric(vertical: 14.h),
-                        ),
                       ),
-                    ),
-                  ],
+                      8.verticalSpace,
+                      TextWidget(
+                        'Biometric data never leaves your device. The vault key is encrypted with a key protected by your device\'s secure hardware.',
+                        textType: TextType.bodySmall,
+                        color: AppColors.textSecondary,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+
+              24.verticalSpace,
+
+              /// Actions
+              Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16.r),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.folder_outlined,
+                            color: AppColors.primary,
+                            size: 24.sp,
+                          ),
+                          12.horizontalSpace,
+                          TextWidget(
+                            'Vault Actions',
+                            textType: TextType.titleLarge,
+                            color: AppColors.textPrimary,
+                          ),
+                        ],
+                      ),
+                      16.verticalSpace,
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.lock_outline),
+                          label: TextWidget(
+                            'Lock Vault',
+                            color: AppColors.textPrimary,
+                          ),
+                          onPressed: _lockVault,
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: AppColors.primary),
+                            padding: EdgeInsets.symmetric(vertical: 14.h),
+                          ),
+                        ),
+                      ),
+                      12.verticalSpace,
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.logout),
+                          label: TextWidget(
+                            'Logout',
+                            color: AppColors.background,
+                          ),
+                          onPressed: () {
+                            AppLogger.debug('HomeScreen.logout: logging out');
+                            getIt<AuthCubit>().logout();
+                            getIt<NavigationService>().pushAndRemoveUntil(
+                              RouteNames.loginRoute,
+                            );
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.error,
+                            padding: EdgeInsets.symmetric(vertical: 14.h),
+                          ),
+                        ),
+                      ),
+                      12.verticalSpace,
+
+                      /// Divider before destructive action
+                      Container(height: 1, color: AppColors.border),
+                      12.verticalSpace,
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.delete_outline),
+                          label: TextWidget(
+                            'Delete Account',
+                            color: AppColors.error,
+                          ),
+                          onPressed: () {
+                            AppLogger.debug(
+                              'HomeScreen.deleteAccount: navigating to delete account screen',
+                            );
+                            getIt<NavigationService>().navigateTo(
+                              RouteNames.deleteAccountRoute,
+                            );
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: AppColors.error),
+                            foregroundColor: AppColors.error,
+                            padding: EdgeInsets.symmetric(vertical: 14.h),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

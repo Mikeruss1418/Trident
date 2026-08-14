@@ -329,6 +329,47 @@ flowchart TD
 5. ← `GoRouter` redirects to `/login`
 6. ← `NavigationService.pushAndRemoveUntil('/login')`
 
+### 5.5 Vault Deletion (Account Deletion) — `VaultRepository.deleteVault()`
+
+```mermaid
+flowchart TD
+    A[HomeScreen: Delete Account button] --> B[DeleteAccountScreen: type "DELETE" to confirm]
+    B --> C[AuthCubit.deleteAccount]
+    C --> D[VaultRepository.deleteVault]
+    D --> E[Zero _dek bytes if in memory]
+    E --> F[_dek = null]
+    F --> G[VaultStorageService.deleteAllVaultData]
+    G --> H[Parallel delete: salt, encryptedDEK, verifier, biometricEnabled, biometricEncryptedDEK, biometricUnlockKey]
+    H --> I[AuthCubit emits onboarding]
+    I --> J[GoRouter redirects to /sign-up]
+```
+
+**Sequential execution order (in code):**
+
+1. `HomeScreen` — user taps "Delete Account" in the Vault Actions section
+2. → `NavigationService.navigateTo('/delete-account')` — navigates to confirmation screen
+3. `DeleteAccountScreen` — user types "DELETE" in the confirmation field and taps "Delete Vault"
+4. → `AuthCubit.deleteAccount()` — calls `VaultRepository.deleteVault()`
+5. → `VaultRepository.deleteVault()`:
+   a. If `_dek` is non-null (vault is unlocked): iterates over every byte and sets to 0, then `_dek = null`
+   b. Calls `_storage.deleteAllVaultData()` — parallel deletion of all 6 secure storage keys:
+      - `vault_salt`
+      - `vault_encrypted_dek_blob`
+      - `vault_password_verifier_blob`
+      - `biometric_enabled`
+      - `biometric_encrypted_dek`
+      - `biometric_unlock_key`
+6. ← `AuthCubit` emits `AuthStatus.onboarding`
+7. ← `GoRouter` redirect detects `onboarding` → redirects to `/sign-up`
+8. ← `DeleteAccountScreen` BlocListener also navigates to `/sign-up` as a fallback
+9. ← Navigation stack is cleared (`pushAndRemoveUntil`) so back button cannot return
+
+**Security notes:**
+- The DEK is zeroed from memory before deletion just like `lockVault()`
+- All biometric keys (BUK, bDEK) are destroyed — biometric unlock is permanently disabled
+- No vault metadata survives — the vault is unrecoverable
+- The user must create a new vault from scratch (onboarding flow)
+
 ### 5.4 Vault Unlock (Biometric) — `VaultRepository.unlockWithBiometric()`
 
 ```mermaid
@@ -429,6 +470,11 @@ stateDiagram-v2
     vaultLocked --> authenticated: unlockWithBiometric
     unauthenticated --> authenticated: unlockWithBiometric
     vaultLocked --> unauthenticated: logout
+
+    %% Account deletion — from any state except onboarding
+    authenticated --> onboarding: deleteAccount (wipes vault, emits onboarding)
+    vaultLocked --> onboarding: deleteAccount (wipes vault, emits onboarding)
+    unauthenticated --> onboarding: deleteAccount (wipes vault, emits onboarding)
 ```
 
 ### Biometric-specific transitions
@@ -465,6 +511,9 @@ Future<bool> unlockWithBiometric()  // biometric auth → decrypt DEK → emit a
 
 // Logout
 void logout()                      // locks vault + emits unauthenticated
+
+// Account deletion
+void deleteAccount()               // zeros DEK, wipes all secure storage, emits onboarding
 ```
 
 ### Design Rules
@@ -923,9 +972,10 @@ LoginScreen._checkBiometricEnabled()                 [login_screen.dart:34]
 
 | File                                                                               | Role                                                                      |
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `lib/features/auth/presentation/screens/login_screen.dart`                       | Login UI — master password field, biometric button, error display        |
-| `lib/features/auth/presentation/screens/sign_up_screen.dart`                     | Sign-up UI — password creation with strength indicator                   |
-| `lib/features/auth/presentation/screens/home_screen.dart`                        | Home UI — vault status, biometric toggle, lock/logout buttons            |
+|| `lib/features/auth/presentation/screens/login_screen.dart`                       | Login UI — master password field, biometric button, error display        |
+|| `lib/features/auth/presentation/screens/sign_up_screen.dart`                     | Sign-up UI — password creation with strength indicator                   |
+|| `lib/features/auth/presentation/screens/home_screen.dart`                        | Home UI — vault status, biometric toggle, lock/logout/delete buttons     |
+|| `lib/features/auth/presentation/screens/delete_account_screen.dart`                | Confirm vault deletion — type "DELETE" to confirm                       |
 | `lib/features/auth/presentation/cubits/auth_cubit/auth_cubit.dart`               | Auth state machine — all auth method orchestrations                      |
 | `lib/core/services/encryption/vault_encryption/vault_repository.dart`            | Vault operations — DEK lifecycle, delegates to crypto + storage          |
 | `lib/core/services/encryption/vault_encryption/vault_encryption_service.dart`    | Crypto engine — Argon2id, AES-256-GCM, key derivation                    |
@@ -957,11 +1007,13 @@ Backed by Android Keystore / iOS Keychain. Used **only** for vault metadata.
 | `biometric_enabled`            | `'true'` or absent                       | String | Flag: is biometric unlock enabled                    |
 | `biometric_encrypted_dek`      | AES-256-GCM encrypted DEK (keyed with BUK) | Base64 | Biometric unlock path                                |
 | `biometric_unlock_key`         | 32-byte random BUK                         | Base64 | Biometric unlock key (raw, stored in secure storage) |
+| **All keys**                 | —                                          | —     | Wiped by `deleteAllVaultData()` during account deletion |
 
 **Implementation notes:**
 
 - `SecureStorageServiceImpl` handles iOS edge cases (empty string detection, multi-attempt deletion with iCloud sync disabled)
 - `SecureStorageModule` provides `FlutterSecureStorage` with `iCloudKeychainAccessibility: null` (disabled)
+- `VaultStorageService.deleteAllVaultData()` deletes all 6 keys in parallel for account deletion
 
 ```mermaid
 flowchart LR
@@ -1057,12 +1109,13 @@ Uses `go_router` with auth-state-based redirects.
 
 ### Routes
 
-| Path         | Screen                       | Auth Required        |
-| ------------ | ---------------------------- | -------------------- |
-| `/`        | Redirect based on auth state | —                   |
-| `/sign-up` | `SignUpScreen`             | No (onboarding only) |
-| `/login`   | `LoginScreen`              | No                   |
-| `/home`    | `HomeScreen`               | Yes                  |
+| Path              | Screen                  | Auth Required        |
+| ----------------- | ----------------------- | -------------------- |
+| `/`             | Redirect based on auth state | —                   |
+| `/sign-up`      | `SignUpScreen`          | No (onboarding only) |
+| `/login`        | `LoginScreen`           | No                   |
+| `/home`         | `HomeScreen`            | Yes                  |
+| `/delete-account` | `DeleteAccountScreen` | Yes (authenticated only) |
 
 ### Redirect Logic
 
@@ -1071,6 +1124,7 @@ AuthStatus.onboarding     → /sign-up
 AuthStatus.unauthenticated → /login
 AuthStatus.authenticated   → /home
 AuthStatus.vaultLocked     → /login
+/delete-account           → redirect to /login if not authenticated
 ```
 
 ### Navigation Service
@@ -1145,6 +1199,7 @@ flowchart TD
     Router --> SignUp[SignUpScreen]
     Router --> Login[LoginScreen]
     Router --> Home[HomeScreen]
+    Router --> DeleteAccount[DeleteAccountScreen]
 
     SignUp --> PasswordStrength[PasswordStrengthIndicatorWidget]
     Login --> AuthCubit
@@ -1283,6 +1338,8 @@ AES-GCM's built-in MAC verification catches wrong passwords via `SecretBoxAuthen
 - [X] BLoC state abstractions
 - [X] Logger infrastructure
 - [X] Biometric authentication (Face ID / Fingerprint unlock)
+|- [X] Account deletion (vault wipe + secure storage destruction + onboarding redirect)
+|- [X] Delete account confirmation screen with "type DELETE to confirm" safety pattern
 
 ### Not Implemented (Planned)
 

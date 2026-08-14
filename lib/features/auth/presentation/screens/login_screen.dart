@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:trident/core/constants/assets_path.dart';
 import 'package:trident/core/extensions/widget_extension.dart';
 import 'package:trident/core/routes/route_names.dart';
 import 'package:trident/core/services/biometric/biometric.dart';
@@ -84,11 +85,15 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _unlockWithBiometric() async {
-    AppLogger.debug('LoginScreen._unlockWithBiometric: starting biometric unlock flow');
+    AppLogger.debug(
+      'LoginScreen._unlockWithBiometric: starting biometric unlock flow',
+    );
     final biometricService = getIt<BiometricService>();
     final available = await biometricService.isAvailable();
     if (!available) {
-      AppLogger.debug('LoginScreen._unlockWithBiometric: biometric not available on device');
+      AppLogger.debug(
+        'LoginScreen._unlockWithBiometric: biometric not available on device',
+      );
       if (!mounted) return;
       _errorMessage.value = 'Biometric authentication not available';
       return;
@@ -96,21 +101,29 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final enabled = await getIt<AuthCubit>().isBiometricEnabled();
     if (!enabled) {
-      AppLogger.debug('LoginScreen._unlockWithBiometric: biometric not enabled for vault');
+      AppLogger.debug(
+        'LoginScreen._unlockWithBiometric: biometric not enabled for vault',
+      );
       if (!mounted) return;
       _errorMessage.value = 'Biometric unlock is not enabled for this vault';
       return;
     }
 
-    AppLogger.debug('LoginScreen._unlockWithBiometric: requesting biometric authentication');
+    AppLogger.debug(
+      'LoginScreen._unlockWithBiometric: requesting biometric authentication',
+    );
     _isBiometricLoading.value = true;
     _errorMessage.value = null;
     try {
       final success = await getIt<AuthCubit>().unlockWithBiometric();
       if (success) {
-        AppLogger.debug('LoginScreen._unlockWithBiometric: biometric unlock successful');
+        AppLogger.debug(
+          'LoginScreen._unlockWithBiometric: biometric unlock successful',
+        );
       } else if (mounted) {
-        AppLogger.warning('LoginScreen._unlockWithBiometric: biometric unlock failed');
+        AppLogger.warning(
+          'LoginScreen._unlockWithBiometric: biometric unlock failed',
+        );
         _errorMessage.value =
             'Biometric authentication failed. Try again or use master password.';
       }
@@ -150,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: AppColors.secondary,
                         size: 28.sp,
                       ),
-                      10.horizontalSpace,
+                      14.horizontalSpace,
                       TextWidget(
                         'Trident',
                         textType: TextType.custom,
@@ -246,26 +259,26 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 16.verticalSpace,
                 OutlinedButton.icon(
-              onPressed: isLoading ? null : _unlockWithBiometric,
-              icon: isLoading
-                  ? SizedBox(
-                      width: 20.w,
-                      height: 20.h,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.primary,
-                      ),
-                    )
-                  : const Icon(Icons.fingerprint),
-              label: const TextWidget('Unlock with Biometric'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: Size(double.infinity, 48.h),
-                side: BorderSide(color: AppColors.primary),
-                foregroundColor: AppColors.primary,
-              ),
-            ),
-          ],
-        );
+                  onPressed: isLoading ? null : _unlockWithBiometric,
+                  icon: isLoading
+                      ? SizedBox(
+                          width: 20.w,
+                          height: 20.h,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : const Icon(Icons.fingerprint),
+                  label: const TextWidget('Unlock with Biometric'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: Size(double.infinity, 48.h),
+                    side: BorderSide(color: AppColors.primary),
+                    foregroundColor: AppColors.primary,
+                  ),
+                ),
+              ],
+            );
           },
         );
       },
@@ -331,6 +344,9 @@ class _LoginScreenState extends State<LoginScreen> {
             10.verticalSpace,
             TextFormField(
               controller: controller,
+              enableIMEPersonalizedLearning: false,
+              enableSuggestions: false,
+              enableInteractiveSelection: false,
               obscureText: obscurePassword.value,
               enabled: !_isLoading.value,
               textInputAction: TextInputAction.done,

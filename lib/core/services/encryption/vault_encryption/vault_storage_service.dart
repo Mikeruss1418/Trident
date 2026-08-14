@@ -52,7 +52,9 @@ class VaultStorageService {
     // cipher generation can silently fail.
     await deleteVaultMetadata();
 
-    AppLogger.debug('saveVaultBlobs: writing salt, encrypted DEK, and verifier to secure storage');
+    AppLogger.debug(
+      'saveVaultBlobs: writing salt, encrypted DEK, and verifier to secure storage',
+    );
     await Future.wait([
       _secureStorage.writeSecureData(
         key: SecureStorageKeys.salt,
@@ -84,9 +86,7 @@ class VaultStorageService {
     AppLogger.debug('loadVaultBlobs: reading vault blobs from secure storage');
     final results = await Future.wait([
       _secureStorage.readSecureData(key: SecureStorageKeys.salt),
-      _secureStorage.readSecureData(
-        key: SecureStorageKeys.encryptedDEKBlob,
-      ),
+      _secureStorage.readSecureData(key: SecureStorageKeys.encryptedDEKBlob),
       _secureStorage.readSecureData(
         key: SecureStorageKeys.passwordVerifierBlob,
       ),
@@ -94,7 +94,9 @@ class VaultStorageService {
 
     // Treat empty strings the same as null — they are unreadable data.
     if (results.any((r) => r == null || r.isEmpty)) {
-      AppLogger.warning('loadVaultBlobs: vault metadata incomplete or corrupted');
+      AppLogger.warning(
+        'loadVaultBlobs: vault metadata incomplete or corrupted',
+      );
       throw VaultCorruptedException();
     }
 
@@ -107,14 +109,12 @@ class VaultStorageService {
   }
 
   Future<void> deleteVaultMetadata() async {
-    AppLogger.debug('deleteVaultMetadata: clearing salt, encrypted DEK, and verifier');
+    AppLogger.debug(
+      'deleteVaultMetadata: clearing salt, encrypted DEK, and verifier',
+    );
     await Future.wait([
-      _secureStorage.deleteSecureData(
-        key: SecureStorageKeys.salt,
-      ),
-      _secureStorage.deleteSecureData(
-        key: SecureStorageKeys.encryptedDEKBlob,
-      ),
+      _secureStorage.deleteSecureData(key: SecureStorageKeys.salt),
+      _secureStorage.deleteSecureData(key: SecureStorageKeys.encryptedDEKBlob),
       _secureStorage.deleteSecureData(
         key: SecureStorageKeys.passwordVerifierBlob,
       ),
@@ -155,7 +155,9 @@ class VaultStorageService {
     AppLogger.debug('enableBiometric: DEK encrypted with BUK');
 
     // Store encrypted DEK and BUK
-    AppLogger.debug('enableBiometric: writing biometric data to secure storage');
+    AppLogger.debug(
+      'enableBiometric: writing biometric data to secure storage',
+    );
     await Future.wait([
       _secureStorage.writeSecureData(
         key: SecureStorageKeys.biometricEncryptedDEK,
@@ -173,13 +175,41 @@ class VaultStorageService {
     AppLogger.debug('enableBiometric: biometric data stored successfully');
   }
 
+  /// Wipes ALL vault data from secure storage.
+  ///
+  /// Deletes the vault salt, encrypted DEK, password verifier, and all
+  /// biometric-related keys. After calling this, [vaultExists] returns false
+  /// and the vault is effectively destroyed — no recovery is possible.
+  ///
+  /// This does NOT touch [SharedPreferences] (app preferences only).
+  Future<void> deleteAllVaultData() async {
+    AppLogger.debug(
+      'deleteAllVaultData: wiping all vault + biometric data from secure storage',
+    );
+    await Future.wait([
+      _secureStorage.deleteSecureData(key: SecureStorageKeys.salt),
+      _secureStorage.deleteSecureData(key: SecureStorageKeys.encryptedDEKBlob),
+      _secureStorage.deleteSecureData(
+        key: SecureStorageKeys.passwordVerifierBlob,
+      ),
+      _secureStorage.deleteSecureData(key: SecureStorageKeys.biometricEnabled),
+      _secureStorage.deleteSecureData(
+        key: SecureStorageKeys.biometricEncryptedDEK,
+      ),
+      _secureStorage.deleteSecureData(
+        key: SecureStorageKeys.biometricUnlockKey,
+      ),
+    ]);
+    AppLogger.debug('deleteAllVaultData: all vault data destroyed');
+  }
+
   /// Disables biometric unlock and clears biometric data
   Future<void> disableBiometric() async {
-    AppLogger.debug('disableBiometric: clearing biometric-enabled flag, encrypted DEK, and BUK');
+    AppLogger.debug(
+      'disableBiometric: clearing biometric-enabled flag, encrypted DEK, and BUK',
+    );
     await Future.wait([
-      _secureStorage.deleteSecureData(
-        key: SecureStorageKeys.biometricEnabled,
-      ),
+      _secureStorage.deleteSecureData(key: SecureStorageKeys.biometricEnabled),
       _secureStorage.deleteSecureData(
         key: SecureStorageKeys.biometricEncryptedDEK,
       ),
@@ -210,23 +240,27 @@ class VaultStorageService {
     );
 
     if (!authenticated) {
-      AppLogger.warning('unlockWithBiometric: biometric authentication failed or cancelled');
+      AppLogger.warning(
+        'unlockWithBiometric: biometric authentication failed or cancelled',
+      );
       return null;
     }
 
-    AppLogger.debug('unlockWithBiometric: biometric authenticated, reading encrypted DEK and BUK from secure storage');
+    AppLogger.debug(
+      'unlockWithBiometric: biometric authenticated, reading encrypted DEK and BUK from secure storage',
+    );
     // Read biometric data
     final results = await Future.wait([
       _secureStorage.readSecureData(
         key: SecureStorageKeys.biometricEncryptedDEK,
       ),
-      _secureStorage.readSecureData(
-        key: SecureStorageKeys.biometricUnlockKey,
-      ),
+      _secureStorage.readSecureData(key: SecureStorageKeys.biometricUnlockKey),
     ]);
 
     if (results.any((r) => r == null || r.isEmpty)) {
-      AppLogger.warning('unlockWithBiometric: biometric data missing from secure storage');
+      AppLogger.warning(
+        'unlockWithBiometric: biometric data missing from secure storage',
+      );
       return null;
     }
 

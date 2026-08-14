@@ -37,8 +37,7 @@ class FakeBiometricService implements BiometricService {
     String? cancelButton,
     bool useErrorDialogs = true,
     bool stickyAuth = true,
-  }) async =>
-      authenticated;
+  }) async => authenticated;
 
   @override
   Future<void> invalidate() async {}
@@ -50,6 +49,7 @@ class FakeVaultStorageService implements VaultStorageService {
   EncryptedBlobModel? encryptedDekBlob;
   EncryptedBlobModel? passwordVerifierBlob;
   bool biometricEnabled = false;
+  bool deleteAllVaultDataCalled = false;
 
   @override
   Future<bool> vaultExists() async => salt != null;
@@ -83,6 +83,15 @@ class FakeVaultStorageService implements VaultStorageService {
     salt = null;
     encryptedDekBlob = null;
     passwordVerifierBlob = null;
+  }
+
+  @override
+  Future<void> deleteAllVaultData() async {
+    deleteAllVaultDataCalled = true;
+    salt = null;
+    encryptedDekBlob = null;
+    passwordVerifierBlob = null;
+    biometricEnabled = false;
   }
 
   @override
@@ -282,6 +291,73 @@ void main() {
       });
     });
 
+    group('deleteAccount', () {
+      test('wipes vault data and transitions to onboarding', () async {
+        await authCubit.initialize();
+        await authCubit.createVault('password');
+        expect(authCubit.state, equals(AuthStatus.authenticated));
+        expect(await repository.vaultExists(), isTrue);
+
+        authCubit.deleteAccount();
+
+        expect(authCubit.state, equals(AuthStatus.onboarding));
+        expect(await repository.vaultExists(), isFalse);
+        expect(repository.isUnlocked, isFalse);
+        expect(storage.deleteAllVaultDataCalled, isTrue);
+      });
+
+      test('clears biometric data when vault is deleted', () async {
+        await authCubit.initialize();
+        await authCubit.createVault('password');
+        await authCubit.enableBiometric();
+        expect(await authCubit.isBiometricEnabled(), isTrue);
+
+        authCubit.deleteAccount();
+
+        expect(authCubit.state, equals(AuthStatus.onboarding));
+        final fakeStorage = storage;
+        expect(fakeStorage.biometricEnabled, isFalse);
+      });
+
+      test(
+        'zeroes in-memory DEK when vault is deleted while unlocked',
+        () async {
+          await authCubit.initialize();
+          await authCubit.createVault('password');
+          expect(repository.isUnlocked, isTrue);
+
+          authCubit.deleteAccount();
+
+          expect(repository.isUnlocked, isFalse);
+        },
+      );
+
+      test('can create a new vault after deletion', () async {
+        await authCubit.initialize();
+        await authCubit.createVault('old_password');
+        expect(authCubit.state, equals(AuthStatus.authenticated));
+
+        authCubit.deleteAccount();
+        expect(authCubit.state, equals(AuthStatus.onboarding));
+
+        // Should be able to create a fresh vault with a different password
+        await authCubit.createVault('new_password_123');
+        expect(authCubit.state, equals(AuthStatus.authenticated));
+
+        // Should be able to unlock with the new password
+        repository.lockVault();
+        expect(repository.isUnlocked, isFalse);
+
+        authCubit.close();
+        authCubit = AuthCubit(repository, biometricService);
+        await authCubit.initialize();
+        expect(authCubit.state, equals(AuthStatus.unauthenticated));
+
+        await authCubit.login('new_password_123');
+        expect(authCubit.state, equals(AuthStatus.authenticated));
+      });
+    });
+
     group('biometric methods', () {
       test('isBiometricAvailable delegates to BiometricService', () async {
         biometricService.available = true;
@@ -304,43 +380,49 @@ void main() {
         await authCubit.initialize();
 
         // Vault not created, so enableBiometric should throw StateError
-        expect(
-          () => authCubit.enableBiometric(),
-          throwsA(isA<StateError>()),
-        );
+        expect(() => authCubit.enableBiometric(), throwsA(isA<StateError>()));
       });
 
-      test('unlockWithBiometric returns false when not in correct state', () async {
-        await authCubit.initialize();
-        // State is onboarding, not vaultLocked or unauthenticated
-        final result = await authCubit.unlockWithBiometric();
-        expect(result, isFalse);
-      });
+      test(
+        'unlockWithBiometric returns false when not in correct state',
+        () async {
+          await authCubit.initialize();
+          // State is onboarding, not vaultLocked or unauthenticated
+          final result = await authCubit.unlockWithBiometric();
+          expect(result, isFalse);
+        },
+      );
 
-      test('unlockWithBiometric returns false when biometric not enabled', () async {
-        await repository.createVault('password');
-        authCubit.close();
-        authCubit = AuthCubit(repository, biometricService);
-        await authCubit.initialize();
-        // State is unauthenticated, biometric not enabled
+      test(
+        'unlockWithBiometric returns false when biometric not enabled',
+        () async {
+          await repository.createVault('password');
+          authCubit.close();
+          authCubit = AuthCubit(repository, biometricService);
+          await authCubit.initialize();
+          // State is unauthenticated, biometric not enabled
 
-        final result = await authCubit.unlockWithBiometric();
-        expect(result, isFalse);
-      });
+          final result = await authCubit.unlockWithBiometric();
+          expect(result, isFalse);
+        },
+      );
 
-      test('unlockWithBiometric returns false when biometric auth fails', () async {
-        await repository.createVault('password');
-        await authCubit.enableBiometric();
-        repository.lockVault();
-        authCubit.close();
-        authCubit = AuthCubit(repository, biometricService);
-        await authCubit.initialize();
-        // State is unauthenticated, biometric enabled
+      test(
+        'unlockWithBiometric returns false when biometric auth fails',
+        () async {
+          await repository.createVault('password');
+          await authCubit.enableBiometric();
+          repository.lockVault();
+          authCubit.close();
+          authCubit = AuthCubit(repository, biometricService);
+          await authCubit.initialize();
+          // State is unauthenticated, biometric enabled
 
-        biometricService.authenticated = false;
-        final result = await authCubit.unlockWithBiometric();
-        expect(result, isFalse);
-      });
+          biometricService.authenticated = false;
+          final result = await authCubit.unlockWithBiometric();
+          expect(result, isFalse);
+        },
+      );
     });
   });
 }

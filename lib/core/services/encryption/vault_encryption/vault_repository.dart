@@ -49,14 +49,18 @@ class VaultRepository {
         final blobs = await _storage.loadVaultBlobs();
         if (blobs != null) {
           // Genuinely healthy vault exists — refuse to overwrite.
-          AppLogger.warning('createVault: healthy vault already exists, refusing to overwrite');
+          AppLogger.warning(
+            'createVault: healthy vault already exists, refusing to overwrite',
+          );
           throw StateError(
             'createVault: a complete vault already exists. '
             'Use unlockVault() instead.',
           );
         }
         // blobs == null despite vaultExists() → inconsistent state, wipe it.
-        AppLogger.warning('createVault: inconsistent vault state detected (vaultExists=true, blobs=null), wiping');
+        AppLogger.warning(
+          'createVault: inconsistent vault state detected (vaultExists=true, blobs=null), wiping',
+        );
         await _storage.deleteVaultMetadata();
         await _storage.disableBiometric();
       } on StateError {
@@ -64,7 +68,9 @@ class VaultRepository {
       } on VaultCorruptedException {
         // Corrupted/empty metadata — primary path after RSA→AES migration
         // with 0 items. Wipe and proceed with fresh creation.
-        AppLogger.warning('createVault: corrupted vault metadata detected, wiping and recreating');
+        AppLogger.warning(
+          'createVault: corrupted vault metadata detected, wiping and recreating',
+        );
         await _storage.deleteVaultMetadata();
         await _storage.disableBiometric();
       } catch (e, st) {
@@ -80,7 +86,9 @@ class VaultRepository {
 
     AppLogger.debug('createVault: generating vault material');
     final result = await _crypto.createVaultMaterial(masterPassword);
-    AppLogger.debug('createVault: vault material created, saving to secure storage');
+    AppLogger.debug(
+      'createVault: vault material created, saving to secure storage',
+    );
 
     await _storage.saveVaultBlobs(
       salt: result.salt,
@@ -171,7 +179,9 @@ class VaultRepository {
 
   /// Disables biometric unlock and clears biometric data
   Future<void> disableBiometric() async {
-    AppLogger.debug('disableBiometric: clearing biometric data from secure storage');
+    AppLogger.debug(
+      'disableBiometric: clearing biometric data from secure storage',
+    );
     await _storage.disableBiometric();
     AppLogger.debug('disableBiometric: biometric data cleared');
   }
@@ -191,10 +201,14 @@ class VaultRepository {
 
     if (dek != null) {
       _dek = dek;
-      AppLogger.debug('unlockWithBiometric: biometric unlock successful (DEK in memory)');
+      AppLogger.debug(
+        'unlockWithBiometric: biometric unlock successful (DEK in memory)',
+      );
       return true;
     }
-    AppLogger.warning('unlockWithBiometric: biometric unlock failed or cancelled');
+    AppLogger.warning(
+      'unlockWithBiometric: biometric unlock failed or cancelled',
+    );
     return false;
   }
 
@@ -208,9 +222,13 @@ class VaultRepository {
   /// Throws [StateError] if vault is locked.
   Future<Uint8List> encryptDocument(Uint8List plaintext) async {
     _requireUnlocked();
-    AppLogger.debug('encryptDocument: encrypting ${plaintext.length} bytes with DEK');
+    AppLogger.debug(
+      'encryptDocument: encrypting ${plaintext.length} bytes with DEK',
+    );
     final blob = await _crypto.encryptDocument(plaintext, _dek!);
-    AppLogger.debug('encryptDocument: encryption complete, output ${blob.bytes.length} bytes');
+    AppLogger.debug(
+      'encryptDocument: encryption complete, output ${blob.bytes.length} bytes',
+    );
     return blob.bytes;
   }
 
@@ -219,10 +237,14 @@ class VaultRepository {
   /// Throws [StateError] if vault is locked.
   Future<Uint8List> decryptDocument(Uint8List encryptedBytes) async {
     _requireUnlocked();
-    AppLogger.debug('decryptDocument: decrypting ${encryptedBytes.length} bytes with DEK');
+    AppLogger.debug(
+      'decryptDocument: decrypting ${encryptedBytes.length} bytes with DEK',
+    );
     final blob = EncryptedBlobModel.validate(encryptedBytes);
     final plaintext = await _crypto.decryptDocument(blob, _dek!);
-    AppLogger.debug('decryptDocument: decryption complete, output ${plaintext.length} bytes');
+    AppLogger.debug(
+      'decryptDocument: decryption complete, output ${plaintext.length} bytes',
+    );
     return plaintext;
   }
 
@@ -232,5 +254,34 @@ class VaultRepository {
         'VaultRepository: vault is locked — unlock before accessing documents',
       );
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Vault deletion
+  // -------------------------------------------------------------------------
+
+  /// Permanently destroys the vault.
+  ///
+  /// Zeroes the in-memory DEK (if any) and wipes ALL vault metadata and
+  /// biometric keys from secure storage. After this call:
+  ///   - [vaultExists] returns false
+  ///   - [isUnlocked] is false (DEK is nulled)
+  ///   - The vault cannot be unlocked — no recovery is possible
+  ///
+  /// The caller (AuthCubit) is responsible for emitting the post-deletion
+  /// auth state ([AuthStatus.onboarding]).
+  void deleteVault() {
+    AppLogger.debug('deleteVault: destroying vault and wiping all data');
+    // Zero the DEK if it's in memory
+    if (_dek != null) {
+      for (var i = 0; i < _dek!.length; i++) {
+        _dek![i] = 0;
+      }
+      _dek = null;
+      AppLogger.debug('deleteVault: in-memory DEK zeroed');
+    }
+    // Wipe all vault metadata + biometric data from secure storage
+    _storage.deleteAllVaultData();
+    AppLogger.debug('deleteVault: vault permanently destroyed');
   }
 }

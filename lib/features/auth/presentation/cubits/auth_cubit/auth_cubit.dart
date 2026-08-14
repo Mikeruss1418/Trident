@@ -78,7 +78,9 @@ class AuthCubit extends Cubit<AuthStatus> {
     AppLogger.debug('AuthCubit.createVault: creating new vault');
     try {
       await _vaultRepository.createVault(masterPassword);
-      AppLogger.debug('AuthCubit.createVault: vault created, transitioning to authenticated');
+      AppLogger.debug(
+        'AuthCubit.createVault: vault created, transitioning to authenticated',
+      );
       emit(AuthStatus.authenticated);
     } catch (e, st) {
       AppLogger.errorWithContext(
@@ -98,10 +100,14 @@ class AuthCubit extends Cubit<AuthStatus> {
 
   /// Throws [WrongPasswordException] on bad password.
   Future<void> login(String masterPassword) async {
-    AppLogger.debug('AuthCubit.login: attempting vault unlock with master password');
+    AppLogger.debug(
+      'AuthCubit.login: attempting vault unlock with master password',
+    );
     try {
       await _vaultRepository.unlockVault(masterPassword);
-      AppLogger.debug('AuthCubit.login: unlock successful, transitioning to authenticated');
+      AppLogger.debug(
+        'AuthCubit.login: unlock successful, transitioning to authenticated',
+      );
       emit(AuthStatus.authenticated);
     } catch (e, st) {
       AppLogger.errorWithContext(
@@ -126,18 +132,26 @@ class AuthCubit extends Cubit<AuthStatus> {
     AppLogger.debug('AuthCubit.lockVault: locking vault');
     _vaultRepository.lockVault();
     emit(AuthStatus.vaultLocked);
-    AppLogger.debug('AuthCubit.lockVault: vault locked, state is now vaultLocked');
+    AppLogger.debug(
+      'AuthCubit.lockVault: vault locked, state is now vaultLocked',
+    );
   }
 
   Future<void> unlockVault(String masterPassword) async {
     if (state != AuthStatus.vaultLocked) {
-      AppLogger.debug('AuthCubit.unlockVault: ignored — current state is $state');
+      AppLogger.debug(
+        'AuthCubit.unlockVault: ignored — current state is $state',
+      );
       return;
     }
-    AppLogger.debug('AuthCubit.unlockVault: attempting unlock with master password');
+    AppLogger.debug(
+      'AuthCubit.unlockVault: attempting unlock with master password',
+    );
     await _vaultRepository.unlockVault(masterPassword);
     emit(AuthStatus.authenticated);
-    AppLogger.debug('AuthCubit.unlockVault: vault unlocked, state is now authenticated');
+    AppLogger.debug(
+      'AuthCubit.unlockVault: vault unlocked, state is now authenticated',
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -184,23 +198,51 @@ class AuthCubit extends Cubit<AuthStatus> {
   }) async {
     if (state != AuthStatus.vaultLocked &&
         state != AuthStatus.unauthenticated) {
-      AppLogger.debug('AuthCubit.unlockWithBiometric: ignored — current state is $state');
+      AppLogger.debug(
+        'AuthCubit.unlockWithBiometric: ignored — current state is $state',
+      );
       return false;
     }
 
-    AppLogger.debug('AuthCubit.unlockWithBiometric: attempting biometric unlock from state $state');
+    AppLogger.debug(
+      'AuthCubit.unlockWithBiometric: attempting biometric unlock from state $state',
+    );
     final success = await _vaultRepository.unlockWithBiometric(
       biometricService: _biometricService,
       localizedReason: localizedReason,
     );
 
     if (success) {
-      AppLogger.debug('AuthCubit.unlockWithBiometric: biometric unlock successful, transitioning to authenticated');
+      AppLogger.debug(
+        'AuthCubit.unlockWithBiometric: biometric unlock successful, transitioning to authenticated',
+      );
       emit(AuthStatus.authenticated);
     } else {
-      AppLogger.warning('AuthCubit.unlockWithBiometric: biometric unlock failed or cancelled');
+      AppLogger.warning(
+        'AuthCubit.unlockWithBiometric: biometric unlock failed or cancelled',
+      );
     }
     return success;
+  }
+
+  // -------------------------------------------------------------------------
+  // Account deletion
+  // -------------------------------------------------------------------------
+
+  /// Permanently deletes the vault.
+  ///
+  /// Zeroes the in-memory DEK, wipes ALL vault metadata and biometric keys
+  /// from secure storage, then emits [AuthStatus.onboarding] so the router
+  /// redirects to the sign-up flow.
+  ///
+  /// After this call there is no vault — the user must create a new one.
+  void deleteAccount() {
+    AppLogger.debug('AuthCubit.deleteAccount: destroying vault');
+    _vaultRepository.deleteVault();
+    emit(AuthStatus.onboarding);
+    AppLogger.debug(
+      'AuthCubit.deleteAccount: vault destroyed, state is now onboarding',
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -208,9 +250,13 @@ class AuthCubit extends Cubit<AuthStatus> {
   // -------------------------------------------------------------------------
 
   void logout() {
-    AppLogger.debug('AuthCubit.logout: locking vault and transitioning to unauthenticated');
+    AppLogger.debug(
+      'AuthCubit.logout: locking vault and transitioning to unauthenticated',
+    );
     _vaultRepository.lockVault();
     emit(AuthStatus.unauthenticated);
-    AppLogger.debug('AuthCubit.logout: logged out, state is now unauthenticated');
+    AppLogger.debug(
+      'AuthCubit.logout: logged out, state is now unauthenticated',
+    );
   }
 }

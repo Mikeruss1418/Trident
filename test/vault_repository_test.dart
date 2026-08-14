@@ -29,8 +29,7 @@ class FakeBiometricService implements BiometricService {
     String? cancelButton,
     bool useErrorDialogs = true,
     bool stickyAuth = true,
-  }) async =>
-      authenticated;
+  }) async => authenticated;
 
   @override
   Future<void> invalidate() async {}
@@ -44,6 +43,7 @@ class FakeVaultStorageService implements VaultStorageService {
   bool biometricEnabled = false;
   Uint8List? biometricEncryptedDek;
   Uint8List? biometricUnlockKey;
+  bool deleteAllVaultDataCalled = false;
 
   @override
   Future<bool> vaultExists() async => salt != null;
@@ -77,6 +77,17 @@ class FakeVaultStorageService implements VaultStorageService {
     salt = null;
     encryptedDekBlob = null;
     passwordVerifierBlob = null;
+  }
+
+  @override
+  Future<void> deleteAllVaultData() async {
+    deleteAllVaultDataCalled = true;
+    salt = null;
+    encryptedDekBlob = null;
+    passwordVerifierBlob = null;
+    biometricEnabled = false;
+    biometricEncryptedDek = null;
+    biometricUnlockKey = null;
   }
 
   @override
@@ -153,17 +164,20 @@ void main() {
         expect(repository.isUnlocked, isTrue);
       });
 
-      test('handles corrupted vault metadata by wiping and recreating', () async {
-        await repository.createVault('first_password');
+      test(
+        'handles corrupted vault metadata by wiping and recreating',
+        () async {
+          await repository.createVault('first_password');
 
-        // Simulate corruption: set salt but clear encrypted DEK
-        storage.encryptedDekBlob = null;
+          // Simulate corruption: set salt but clear encrypted DEK
+          storage.encryptedDekBlob = null;
 
-        await repository.createVault('second_password');
+          await repository.createVault('second_password');
 
-        expect(repository.isUnlocked, isTrue);
-        expect(storage.salt, isNotNull);
-      });
+          expect(repository.isUnlocked, isTrue);
+          expect(storage.salt, isNotNull);
+        },
+      );
     });
 
     group('unlockVault', () {
@@ -233,6 +247,61 @@ void main() {
       });
     });
 
+    group('deleteVault', () {
+      test('wipes vault data and zeroes DEK', () async {
+        await repository.createVault('password');
+        expect(repository.isUnlocked, isTrue);
+        expect(await repository.vaultExists(), isTrue);
+
+        repository.deleteVault();
+
+        expect(repository.isUnlocked, isFalse);
+        expect(await repository.vaultExists(), isFalse);
+        expect(storage.deleteAllVaultDataCalled, isTrue);
+      });
+
+      test('zeros DEK even when vault is locked', () async {
+        await repository.createVault('password');
+        repository.lockVault();
+        expect(repository.isUnlocked, isFalse);
+
+        repository.deleteVault();
+
+        expect(repository.isUnlocked, isFalse);
+        expect(storage.deleteAllVaultDataCalled, isTrue);
+      });
+
+      test('clears biometric data on deletion', () async {
+        await repository.createVault('password');
+        await repository.enableBiometric(biometricService: biometricService);
+        expect(storage.biometricEnabled, isTrue);
+
+        repository.deleteVault();
+
+        expect(storage.biometricEnabled, isFalse);
+        expect(storage.deleteAllVaultDataCalled, isTrue);
+      });
+
+      test('allows re-creation after deletion', () async {
+        await repository.createVault('old_password');
+        repository.deleteVault();
+        expect(await repository.vaultExists(), isFalse);
+
+        await repository.createVault('new_password');
+        expect(repository.isUnlocked, isTrue);
+        expect(await repository.vaultExists(), isTrue);
+
+        // Old password should not work, new password should
+        repository.lockVault();
+        expect(
+          () => repository.unlockVault('old_password'),
+          throwsA(isA<WrongPasswordException>()),
+        );
+        await repository.unlockVault('new_password');
+        expect(repository.isUnlocked, isTrue);
+      });
+    });
+
     group('isBiometricEnabled', () {
       test('returns false when biometric is not enabled', () async {
         expect(await repository.isBiometricEnabled(), isFalse);
@@ -273,19 +342,22 @@ void main() {
         expect(decrypted, equals(Uint8List.fromList(plaintext.codeUnits)));
       });
 
-      test('encrypted document is different each time (random nonce)', () async {
-        await repository.createVault('password');
+      test(
+        'encrypted document is different each time (random nonce)',
+        () async {
+          await repository.createVault('password');
 
-        const plaintext = 'Same content';
-        final encrypted1 = await repository.encryptDocument(
-          Uint8List.fromList(plaintext.codeUnits),
-        );
-        final encrypted2 = await repository.encryptDocument(
-          Uint8List.fromList(plaintext.codeUnits),
-        );
+          const plaintext = 'Same content';
+          final encrypted1 = await repository.encryptDocument(
+            Uint8List.fromList(plaintext.codeUnits),
+          );
+          final encrypted2 = await repository.encryptDocument(
+            Uint8List.fromList(plaintext.codeUnits),
+          );
 
-        expect(encrypted1, isNot(equals(encrypted2)));
-      });
+          expect(encrypted1, isNot(equals(encrypted2)));
+        },
+      );
     });
   });
 }

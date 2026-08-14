@@ -1,3 +1,4 @@
+import 'package:trident/core/constants/assets_path.dart';
 import 'package:trident/core/extensions/widget_extension.dart';
 import 'package:trident/core/routes/route_names.dart';
 import 'package:trident/core/services/encryption/vault_encryption/vault_encryption_service.dart';
@@ -72,7 +73,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
       // No Navigator.push here — routing is BlocListener's job.
     } on WrongPasswordException {
       // Shouldn't happen during creation, but handle defensively.
-      AppLogger.warning('SignUpScreen._onSignUp: WrongPasswordException during creation');
+      AppLogger.warning(
+        'SignUpScreen._onSignUp: WrongPasswordException during creation',
+      );
       _errorMessage.value = 'Unexpected error. Please try again.';
     } catch (e, st) {
       AppLogger.errorWithContext(
@@ -110,7 +113,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       color: AppColors.secondary,
                       size: 28.sp,
                     ),
-                    10.horizontalSpace,
+                    14.horizontalSpace,
                     TextWidget(
                       'Trident',
                       textType: TextType.custom,
@@ -270,7 +273,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
             TextFormField(
               controller: controller,
               obscureText: obscurePassword.value,
-              
+              enableIMEPersonalizedLearning: false,
+              enableSuggestions: false,
+              enableInteractiveSelection: false,
               enabled: !_isLoading.value,
               textInputAction: TextInputAction.next,
               decoration: InputDecoration(

@@ -5,6 +5,7 @@ import 'package:trident/core/services/biometric/biometric.dart';
 import 'package:trident/core/services/encryption/vault_encryption/vault_encryption_service.dart';
 import 'package:trident/core/services/navigation/navigation_service.dart';
 import 'package:trident/core/utils/app_imports.dart';
+import 'package:trident/core/utils/logger/app_logger.dart';
 import 'package:trident/features/auth/presentation/cubits/auth_cubit/auth_cubit.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -55,14 +56,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _login() async {
     if (formKey.currentState?.validate() ?? false) {
+      AppLogger.debug('LoginScreen._login: login attempt started');
       _isLoading.value = true;
       _errorMessage.value = null;
       try {
         await getIt<AuthCubit>().login(_masterPasswordController.text);
+        AppLogger.debug('LoginScreen._login: login successful');
       } on WrongPasswordException {
+        AppLogger.warning('LoginScreen._login: wrong password provided');
         if (!mounted) return;
         _errorMessage.value = 'Wrong password, Provide the right one';
-      } catch (e) {
+      } catch (e, st) {
+        AppLogger.errorWithContext(
+          'LoginScreen._login failed',
+          context: 'LoginScreen',
+          error: e,
+          stackTrace: st,
+        );
         if (!mounted) return;
         _errorMessage.value = "Something went wrong: ${e.toString()}";
       } finally {
@@ -74,9 +84,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _unlockWithBiometric() async {
+    AppLogger.debug('LoginScreen._unlockWithBiometric: starting biometric unlock flow');
     final biometricService = getIt<BiometricService>();
     final available = await biometricService.isAvailable();
     if (!available) {
+      AppLogger.debug('LoginScreen._unlockWithBiometric: biometric not available on device');
       if (!mounted) return;
       _errorMessage.value = 'Biometric authentication not available';
       return;
@@ -84,20 +96,31 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final enabled = await getIt<AuthCubit>().isBiometricEnabled();
     if (!enabled) {
+      AppLogger.debug('LoginScreen._unlockWithBiometric: biometric not enabled for vault');
       if (!mounted) return;
       _errorMessage.value = 'Biometric unlock is not enabled for this vault';
       return;
     }
 
+    AppLogger.debug('LoginScreen._unlockWithBiometric: requesting biometric authentication');
     _isBiometricLoading.value = true;
     _errorMessage.value = null;
     try {
       final success = await getIt<AuthCubit>().unlockWithBiometric();
-      if (!success && mounted) {
+      if (success) {
+        AppLogger.debug('LoginScreen._unlockWithBiometric: biometric unlock successful');
+      } else if (mounted) {
+        AppLogger.warning('LoginScreen._unlockWithBiometric: biometric unlock failed');
         _errorMessage.value =
             'Biometric authentication failed. Try again or use master password.';
       }
-    } catch (e) {
+    } catch (e, st) {
+      AppLogger.errorWithContext(
+        'LoginScreen._unlockWithBiometric failed',
+        context: 'LoginScreen',
+        error: e,
+        stackTrace: st,
+      );
       if (!mounted) return;
       _errorMessage.value = "Something went wrong: ${e.toString()}";
     } finally {

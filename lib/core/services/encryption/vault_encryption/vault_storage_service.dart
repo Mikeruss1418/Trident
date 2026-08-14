@@ -3,12 +3,12 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
-import 'package:flutter/material.dart';
 import 'package:injectable/injectable.dart';
 import 'package:trident/core/models/encryption/encrypted_blob_model.dart';
 import 'package:trident/core/services/biometric/biometric.dart';
 import 'package:trident/core/storage/secure_storage/secure_storage_service.dart';
 import 'package:trident/core/storage/secured_storage_keys.dart';
+import 'package:trident/core/utils/logger/app_logger.dart';
 
 /// All vault metadata needed to attempt an unlock.
 class VaultBlobs {
@@ -35,7 +35,9 @@ class VaultStorageService {
       key: SecureStorageKeys.salt,
     );
 
-    return value != null;
+    final exists = value != null;
+    AppLogger.debug('vaultExists: $exists');
+    return exists;
   }
 
   /// saves the vault blobs in the secure storage
@@ -44,11 +46,13 @@ class VaultStorageService {
     required EncryptedBlobModel encryptedDekBlob,
     required EncryptedBlobModel passwordVerifierBlob,
   }) async {
+    AppLogger.debug('saveVaultBlobs: deleting existing metadata before write');
     // Delete first to ensure no stale partial state from a prior failed write
     // survives. On Android, writing over a key that exists from a different
     // cipher generation can silently fail.
     await deleteVaultMetadata();
 
+    AppLogger.debug('saveVaultBlobs: writing salt, encrypted DEK, and verifier to secure storage');
     await Future.wait([
       _secureStorage.writeSecureData(
         key: SecureStorageKeys.salt,
@@ -63,6 +67,7 @@ class VaultStorageService {
         value: _encode(passwordVerifierBlob.bytes),
       ),
     ]);
+    AppLogger.debug('saveVaultBlobs: vault blobs saved successfully');
   }
 
   /// Return null if vault has never been created.
@@ -71,8 +76,12 @@ class VaultStorageService {
   /// Caller (VaultRepository) decides whether to treat this as a fresh-start
   /// or surface an error to the user.
   Future<VaultBlobs?> loadVaultBlobs() async {
-    if (!await vaultExists()) return null;
+    if (!await vaultExists()) {
+      AppLogger.debug('loadVaultBlobs: no vault found');
+      return null;
+    }
 
+    AppLogger.debug('loadVaultBlobs: reading vault blobs from secure storage');
     final results = await Future.wait([
       _secureStorage.readSecureData(key: SecureStorageKeys.salt),
       _secureStorage.readSecureData(
@@ -85,9 +94,11 @@ class VaultStorageService {
 
     // Treat empty strings the same as null — they are unreadable data.
     if (results.any((r) => r == null || r.isEmpty)) {
+      AppLogger.warning('loadVaultBlobs: vault metadata incomplete or corrupted');
       throw VaultCorruptedException();
     }
 
+    AppLogger.debug('loadVaultBlobs: vault blobs loaded successfully');
     return VaultBlobs(
       salt: _decode(results[0]!),
       encryptedDekBlob: EncryptedBlobModel.validate(_decode(results[1]!)),
@@ -96,6 +107,7 @@ class VaultStorageService {
   }
 
   Future<void> deleteVaultMetadata() async {
+    AppLogger.debug('deleteVaultMetadata: clearing salt, encrypted DEK, and verifier');
     await Future.wait([
       _secureStorage.deleteSecureData(
         key: SecureStorageKeys.salt,
@@ -107,6 +119,7 @@ class VaultStorageService {
         key: SecureStorageKeys.passwordVerifierBlob,
       ),
     ]);
+    AppLogger.debug('deleteVaultMetadata: vault metadata cleared');
   }
 
   // =========================================================================
@@ -118,7 +131,9 @@ class VaultStorageService {
     final value = await _secureStorage.readSecureData(
       key: SecureStorageKeys.biometricEnabled,
     );
-    return value == 'true';
+    final enabled = value == 'true';
+    AppLogger.debug('isBiometricEnabled: $enabled');
+    return enabled;
   }
 
   /// Enables biometric unlock by storing the DEK encrypted with a biometric key
@@ -126,17 +141,21 @@ class VaultStorageService {
     required Uint8List dek,
     required BiometricService biometricService,
   }) async {
+    AppLogger.debug('enableBiometric: clearing existing biometric metadata');
     // Clear any existing biometric metadata before writing new configuration
     // to prevent stale state from a previous vault or partial write.
     await disableBiometric();
 
     // Generate a random biometric unlock key (BUK)
     final buk = _randomBytes(32);
+    AppLogger.debug('enableBiometric: BUK generated (32 bytes)');
 
     // Encrypt DEK with BUK
     final encryptedDek = await _encryptWithKey(buk, dek);
+    AppLogger.debug('enableBiometric: DEK encrypted with BUK');
 
     // Store encrypted DEK and BUK
+    AppLogger.debug('enableBiometric: writing biometric data to secure storage');
     await Future.wait([
       _secureStorage.writeSecureData(
         key: SecureStorageKeys.biometricEncryptedDEK,
@@ -151,10 +170,12 @@ class VaultStorageService {
         value: 'true',
       ),
     ]);
+    AppLogger.debug('enableBiometric: biometric data stored successfully');
   }
 
   /// Disables biometric unlock and clears biometric data
   Future<void> disableBiometric() async {
+    AppLogger.debug('disableBiometric: clearing biometric-enabled flag, encrypted DEK, and BUK');
     await Future.wait([
       _secureStorage.deleteSecureData(
         key: SecureStorageKeys.biometricEnabled,
@@ -166,6 +187,7 @@ class VaultStorageService {
         key: SecureStorageKeys.biometricUnlockKey,
       ),
     ]);
+    AppLogger.debug('disableBiometric: biometric data cleared');
   }
 
   /// Attempts to unlock the vault using biometric authentication
@@ -177,18 +199,22 @@ class VaultStorageService {
     // First verify biometric is enabled
     final biometricenabled = await isBiometricEnabled();
     if (!biometricenabled) {
+      AppLogger.debug('unlockWithBiometric: biometric not enabled, aborting');
       return null;
     }
 
     // Authenticate with biometric
+    AppLogger.debug('unlockWithBiometric: requesting biometric authentication');
     final authenticated = await biometricService.authenticate(
       localizedReason: localizedReason,
     );
 
     if (!authenticated) {
+      AppLogger.warning('unlockWithBiometric: biometric authentication failed or cancelled');
       return null;
     }
 
+    AppLogger.debug('unlockWithBiometric: biometric authenticated, reading encrypted DEK and BUK from secure storage');
     // Read biometric data
     final results = await Future.wait([
       _secureStorage.readSecureData(
@@ -200,6 +226,7 @@ class VaultStorageService {
     ]);
 
     if (results.any((r) => r == null || r.isEmpty)) {
+      AppLogger.warning('unlockWithBiometric: biometric data missing from secure storage');
       return null;
     }
 
@@ -208,11 +235,22 @@ class VaultStorageService {
 
     try {
       // Decrypt DEK with BUK
+      AppLogger.debug('unlockWithBiometric: decrypting DEK with BUK');
       final dek = await _decryptWithKey(buk, encryptedDekBlob);
+      AppLogger.debug('unlockWithBiometric: DEK decrypted successfully');
       return dek;
+    } catch (e, st) {
+      AppLogger.errorWithContext(
+        'unlockWithBiometric: DEK decryption failed',
+        context: 'VaultStorageService',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
     } finally {
       // Zero the BUK after use — guaranteed on every exit path
       _zero(buk);
+      AppLogger.debug('unlockWithBiometric: BUK zeroed from memory');
     }
   }
 

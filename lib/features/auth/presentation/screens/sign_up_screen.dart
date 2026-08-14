@@ -3,6 +3,7 @@ import 'package:trident/core/routes/route_names.dart';
 import 'package:trident/core/services/encryption/vault_encryption/vault_encryption_service.dart';
 import 'package:trident/core/services/navigation/navigation_service.dart';
 import 'package:trident/core/utils/app_imports.dart';
+import 'package:trident/core/utils/logger/app_logger.dart';
 import 'package:trident/features/auth/domains/models/password_requirements_model.dart';
 import 'package:trident/features/auth/domains/services/password_validator_service.dart';
 import 'package:trident/features/auth/presentation/cubits/auth_cubit/auth_cubit.dart';
@@ -55,6 +56,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> _onSignUp() async {
     if (!_formKey.currentState!.validate()) return;
 
+    AppLogger.debug('SignUpScreen._onSignUp: starting vault creation');
     _isLoading.value = true;
     _errorMessage.value = null;
 
@@ -64,13 +66,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
       // isolate management. The UI stays responsive.
 
       await getIt<AuthCubit>().createVault(_masterPasswordController.text);
+      AppLogger.debug('SignUpScreen._onSignUp: vault created successfully');
       getIt<NavigationService>().pushAndRemoveUntil(RouteNames.homeRoute);
       // AuthCubit emits authenticated → router handles navigation.
       // No Navigator.push here — routing is BlocListener's job.
     } on WrongPasswordException {
       // Shouldn't happen during creation, but handle defensively.
+      AppLogger.warning('SignUpScreen._onSignUp: WrongPasswordException during creation');
       _errorMessage.value = 'Unexpected error. Please try again.';
-    } catch (e) {
+    } catch (e, st) {
+      AppLogger.errorWithContext(
+        'SignUpScreen._onSignUp failed',
+        context: 'SignUpScreen',
+        error: e,
+        stackTrace: st,
+      );
       _errorMessage.value =
           'Failed to create vault. Please try again.${e.toString()}';
     } finally {
@@ -252,14 +262,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
       listenable: Listenable.merge([obscurePassword, _isLoading]),
       builder: (_, _) {
         return Column(
-          crossAxisAlignment: .start,
-          mainAxisSize: .min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             TextWidget(title, textType: TextType.labelLarge),
             10.verticalSpace,
             TextFormField(
               controller: controller,
               obscureText: obscurePassword.value,
+              
               enabled: !_isLoading.value,
               textInputAction: TextInputAction.next,
               decoration: InputDecoration(

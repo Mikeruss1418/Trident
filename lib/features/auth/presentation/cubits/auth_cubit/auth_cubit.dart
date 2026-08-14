@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:trident/core/services/biometric/biometric.dart';
 import 'package:trident/core/services/encryption/vault_encryption/vault_repository.dart';
+import 'package:trident/core/utils/logger/app_logger.dart';
 
 // User registered
 // ↓
@@ -61,7 +62,9 @@ class AuthCubit extends Cubit<AuthStatus> {
   // -------------------------------------------------------------------------
 
   Future<void> initialize() async {
+    AppLogger.debug('AuthCubit.initialize: checking vault existence');
     final exists = await _vaultRepository.vaultExists();
+    AppLogger.debug('AuthCubit.initialize: vaultExists=$exists');
     emit(exists ? AuthStatus.unauthenticated : AuthStatus.onboarding);
   }
 
@@ -72,10 +75,18 @@ class AuthCubit extends Cubit<AuthStatus> {
   /// Creates the vault. On success → [authenticated].
   /// Rethrows on failure so the UI can surface the error.
   Future<void> createVault(String masterPassword) async {
+    AppLogger.debug('AuthCubit.createVault: creating new vault');
     try {
       await _vaultRepository.createVault(masterPassword);
+      AppLogger.debug('AuthCubit.createVault: vault created, transitioning to authenticated');
       emit(AuthStatus.authenticated);
-    } catch (e) {
+    } catch (e, st) {
+      AppLogger.errorWithContext(
+        'AuthCubit.createVault failed',
+        context: 'AuthCubit',
+        error: e,
+        stackTrace: st,
+      );
       emit(AuthStatus.onboarding);
       rethrow;
     }
@@ -87,8 +98,20 @@ class AuthCubit extends Cubit<AuthStatus> {
 
   /// Throws [WrongPasswordException] on bad password.
   Future<void> login(String masterPassword) async {
-    await _vaultRepository.unlockVault(masterPassword);
-    emit(AuthStatus.authenticated);
+    AppLogger.debug('AuthCubit.login: attempting vault unlock with master password');
+    try {
+      await _vaultRepository.unlockVault(masterPassword);
+      AppLogger.debug('AuthCubit.login: unlock successful, transitioning to authenticated');
+      emit(AuthStatus.authenticated);
+    } catch (e, st) {
+      AppLogger.errorWithContext(
+        'AuthCubit.login failed',
+        context: 'AuthCubit',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -96,15 +119,25 @@ class AuthCubit extends Cubit<AuthStatus> {
   // -------------------------------------------------------------------------
 
   void lockVault() {
-    if (state != AuthStatus.authenticated) return;
+    if (state != AuthStatus.authenticated) {
+      AppLogger.debug('AuthCubit.lockVault: ignored — current state is $state');
+      return;
+    }
+    AppLogger.debug('AuthCubit.lockVault: locking vault');
     _vaultRepository.lockVault();
     emit(AuthStatus.vaultLocked);
+    AppLogger.debug('AuthCubit.lockVault: vault locked, state is now vaultLocked');
   }
 
   Future<void> unlockVault(String masterPassword) async {
-    if (state != AuthStatus.vaultLocked) return;
+    if (state != AuthStatus.vaultLocked) {
+      AppLogger.debug('AuthCubit.unlockVault: ignored — current state is $state');
+      return;
+    }
+    AppLogger.debug('AuthCubit.unlockVault: attempting unlock with master password');
     await _vaultRepository.unlockVault(masterPassword);
     emit(AuthStatus.authenticated);
+    AppLogger.debug('AuthCubit.unlockVault: vault unlocked, state is now authenticated');
   }
 
   // -------------------------------------------------------------------------
@@ -113,23 +146,31 @@ class AuthCubit extends Cubit<AuthStatus> {
 
   /// Checks if biometric unlock is available on device
   Future<bool> isBiometricAvailable() async {
-    return _biometricService.isAvailable();
+    final available = await _biometricService.isAvailable();
+    AppLogger.debug('isBiometricAvailable: $available');
+    return available;
   }
 
   /// Checks if biometric unlock is enabled for this vault
   Future<bool> isBiometricEnabled() async {
-    return _vaultRepository.isBiometricEnabled();
+    final enabled = await _vaultRepository.isBiometricEnabled();
+    AppLogger.debug('isBiometricEnabled: $enabled');
+    return enabled;
   }
 
   /// Enables biometric unlock for the current vault
   /// Requires vault to be unlocked (DEK in memory)
   Future<void> enableBiometric() async {
+    AppLogger.debug('AuthCubit.enableBiometric: enabling biometric unlock');
     await _vaultRepository.enableBiometric(biometricService: _biometricService);
+    AppLogger.debug('AuthCubit.enableBiometric: biometric unlock enabled');
   }
 
   /// Disables biometric unlock and clears biometric data
   Future<void> disableBiometric() async {
+    AppLogger.debug('AuthCubit.disableBiometric: disabling biometric unlock');
     await _vaultRepository.disableBiometric();
+    AppLogger.debug('AuthCubit.disableBiometric: biometric unlock disabled');
   }
 
   /// Attempts to unlock the vault using biometric authentication
@@ -140,20 +181,24 @@ class AuthCubit extends Cubit<AuthStatus> {
   /// persists in secure storage in both cases.
   Future<bool> unlockWithBiometric({
     String localizedReason = 'Unlock your Trident vault',
-    I,
   }) async {
     if (state != AuthStatus.vaultLocked &&
         state != AuthStatus.unauthenticated) {
+      AppLogger.debug('AuthCubit.unlockWithBiometric: ignored — current state is $state');
       return false;
     }
 
+    AppLogger.debug('AuthCubit.unlockWithBiometric: attempting biometric unlock from state $state');
     final success = await _vaultRepository.unlockWithBiometric(
       biometricService: _biometricService,
       localizedReason: localizedReason,
     );
 
     if (success) {
+      AppLogger.debug('AuthCubit.unlockWithBiometric: biometric unlock successful, transitioning to authenticated');
       emit(AuthStatus.authenticated);
+    } else {
+      AppLogger.warning('AuthCubit.unlockWithBiometric: biometric unlock failed or cancelled');
     }
     return success;
   }
@@ -163,7 +208,9 @@ class AuthCubit extends Cubit<AuthStatus> {
   // -------------------------------------------------------------------------
 
   void logout() {
+    AppLogger.debug('AuthCubit.logout: locking vault and transitioning to unauthenticated');
     _vaultRepository.lockVault();
     emit(AuthStatus.unauthenticated);
+    AppLogger.debug('AuthCubit.logout: logged out, state is now unauthenticated');
   }
 }

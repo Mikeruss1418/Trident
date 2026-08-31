@@ -12,7 +12,6 @@
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trident/core/models/encryption/encrypted_blob_model.dart';
-import 'package:trident/core/models/encryption/vault_creation_result_model.dart';
 import 'package:trident/core/services/encryption/vault_encryption/vault_encryption_service.dart';
 
 void main() {
@@ -87,21 +86,27 @@ void main() {
         expect(result1.dek, isNot(equals(result2.dek)));
       });
 
-      test('encrypted DEK blob is different each time (random nonce)', () async {
-        final result1 = await service.createVaultMaterial('same_password');
-        final result2 = await service.createVaultMaterial('same_password');
+      test(
+        'encrypted DEK blob is different each time (random nonce)',
+        () async {
+          final result1 = await service.createVaultMaterial('same_password');
+          final result2 = await service.createVaultMaterial('same_password');
 
-        expect(
-          result1.encryptedDekBlob.bytes,
-          isNot(equals(result2.encryptedDekBlob.bytes)),
-        );
-      });
+          expect(
+            result1.encryptedDekBlob.bytes,
+            isNot(equals(result2.encryptedDekBlob.bytes)),
+          );
+        },
+      );
 
-      test('KEK is zeroed after creation (cannot verify directly, but ensures no crash)', () async {
-        // This test ensures the _zero(kek) call doesn't throw
-        final result = await service.createVaultMaterial('test_password_123');
-        expect(result.dek, isNotNull);
-      });
+      test(
+        'KEK is zeroed after creation (cannot verify directly, but ensures no crash)',
+        () async {
+          // This test ensures the _zero(kek) call doesn't throw
+          final result = await service.createVaultMaterial('test_password_123');
+          expect(result.dek, isNotNull);
+        },
+      );
     });
 
     group('unlockVault', () {
@@ -120,7 +125,9 @@ void main() {
       });
 
       test('throws WrongPasswordException for wrong password', () async {
-        final creationResult = await service.createVaultMaterial('correct_password');
+        final creationResult = await service.createVaultMaterial(
+          'correct_password',
+        );
 
         expect(
           () => service.unlockVault(
@@ -134,7 +141,9 @@ void main() {
       });
 
       test('throws WrongPasswordException for empty password', () async {
-        final creationResult = await service.createVaultMaterial('correct_password');
+        final creationResult = await service.createVaultMaterial(
+          'correct_password',
+        );
 
         expect(
           () => service.unlockVault(
@@ -148,7 +157,9 @@ void main() {
       });
 
       test('tampered verifier blob throws WrongPasswordException', () async {
-        final creationResult = await service.createVaultMaterial('correct_password');
+        final creationResult = await service.createVaultMaterial(
+          'correct_password',
+        );
 
         // Tamper with the verifier blob
         final tamperedBytes = Uint8List.fromList(
@@ -167,28 +178,33 @@ void main() {
         );
       });
 
-      test('tampered encrypted DEK blob throws SecretBoxAuthenticationError', () async {
-        final creationResult = await service.createVaultMaterial('correct_password');
+      test(
+        'tampered encrypted DEK blob throws SecretBoxAuthenticationError',
+        () async {
+          final creationResult = await service.createVaultMaterial(
+            'correct_password',
+          );
 
-        // Tamper with the encrypted DEK blob
-        final tamperedBytes = Uint8List.fromList(
-          creationResult.encryptedDekBlob.bytes,
-        );
-        tamperedBytes[30] ^= 0xFF;
+          // Tamper with the encrypted DEK blob
+          final tamperedBytes = Uint8List.fromList(
+            creationResult.encryptedDekBlob.bytes,
+          );
+          tamperedBytes[30] ^= 0xFF;
 
-        // The code does not wrap the DEK decryption in a try-catch for
-        // SecretBoxAuthenticationError, so it propagates directly.
-        // This is a known gap — see DEVELOPER_GUIDE.md section 15.
-        expect(
-          () => service.unlockVault(
-            masterPassword: 'correct_password',
-            salt: creationResult.salt,
-            encryptedDekBlob: EncryptedBlobModel(tamperedBytes),
-            passwordVerifierBlob: creationResult.passwordVerifierBlob,
-          ),
-          throwsA(isA<Exception>()),
-        );
-      });
+          // The code does not wrap the DEK decryption in a try-catch for
+          // SecretBoxAuthenticationError, so it propagates directly.
+          // This is a known gap — see DEVELOPER_GUIDE.md section 15.
+          expect(
+            () => service.unlockVault(
+              masterPassword: 'correct_password',
+              salt: creationResult.salt,
+              encryptedDekBlob: EncryptedBlobModel(tamperedBytes),
+              passwordVerifierBlob: creationResult.passwordVerifierBlob,
+            ),
+            throwsA(isA<Exception>()),
+          );
+        },
+      );
 
       test('KEK is zeroed after unlock (no crash, no memory leak)', () async {
         final creationResult = await service.createVaultMaterial('password');
@@ -205,19 +221,22 @@ void main() {
     });
 
     group('encryptDocument / decryptDocument', () {
-      test('round-trip: encrypt then decrypt returns original plaintext', () async {
-        const plaintext = 'Hello, Trident! This is a secret document.';
-        final dek = Uint8List.fromList(List.generate(32, (i) => i));
+      test(
+        'round-trip: encrypt then decrypt returns original plaintext',
+        () async {
+          const plaintext = 'Hello, Trident! This is a secret document.';
+          final dek = Uint8List.fromList(List.generate(32, (i) => i));
 
-        final encryptedBlob = await service.encryptDocument(
-          Uint8List.fromList(plaintext.codeUnits),
-          dek,
-        );
+          final encryptedBlob = await service.encryptDocument(
+            Uint8List.fromList(plaintext.codeUnits),
+            dek,
+          );
 
-        final decrypted = await service.decryptDocument(encryptedBlob, dek);
+          final decrypted = await service.decryptDocument(encryptedBlob, dek);
 
-        expect(decrypted, equals(Uint8List.fromList(plaintext.codeUnits)));
-      });
+          expect(decrypted, equals(Uint8List.fromList(plaintext.codeUnits)));
+        },
+      );
 
       test('round-trip with empty plaintext', () async {
         final dek = Uint8List.fromList(List.generate(32, (i) => i));
@@ -241,21 +260,24 @@ void main() {
         expect(decrypted, equals(plaintext));
       });
 
-      test('different encryptions of same plaintext produce different ciphertexts (random nonce)', () async {
-        const plaintext = 'Same plaintext encrypted twice';
-        final dek = Uint8List.fromList(List.generate(32, (i) => i));
+      test(
+        'different encryptions of same plaintext produce different ciphertexts (random nonce)',
+        () async {
+          const plaintext = 'Same plaintext encrypted twice';
+          final dek = Uint8List.fromList(List.generate(32, (i) => i));
 
-        final blob1 = await service.encryptDocument(
-          Uint8List.fromList(plaintext.codeUnits),
-          dek,
-        );
-        final blob2 = await service.encryptDocument(
-          Uint8List.fromList(plaintext.codeUnits),
-          dek,
-        );
+          final blob1 = await service.encryptDocument(
+            Uint8List.fromList(plaintext.codeUnits),
+            dek,
+          );
+          final blob2 = await service.encryptDocument(
+            Uint8List.fromList(plaintext.codeUnits),
+            dek,
+          );
 
-        expect(blob1.bytes, isNot(equals(blob2.bytes)));
-      });
+          expect(blob1.bytes, isNot(equals(blob2.bytes)));
+        },
+      );
 
       test('decrypt with wrong DEK throws error', () async {
         const plaintext = 'Secret data';

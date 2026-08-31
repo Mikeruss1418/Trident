@@ -1,5 +1,4 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:trident/core/constants/assets_path.dart';
 import 'package:trident/core/extensions/widget_extension.dart';
 import 'package:trident/core/routes/route_names.dart';
 import 'package:trident/core/services/biometric/biometric.dart';

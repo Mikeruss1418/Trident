@@ -1,0 +1,26 @@
+name: Flutter Lint
+
+on:
+  pull_request:
+
+jobs:
+  flutter_lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.0"
+          cache: true
+
+      - run: flutter --version
+
+      - run: touch .env.dev .env.prod
+
+      - run: flutter pub get
+
+      - run: dart format --output=none --set-exit-if-changed .
+
+      - run: flutter analyze --fatal-warnings

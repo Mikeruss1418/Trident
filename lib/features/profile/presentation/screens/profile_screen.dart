@@ -4,21 +4,21 @@ import 'package:trident/core/utils/app_imports.dart';
 import 'package:trident/core/utils/logger/app_logger.dart';
 import 'package:trident/features/auth/presentation/cubits/auth_cubit/auth_cubit.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _ProfileScreenState extends State<ProfileScreen> {
   final _biometricEnabled = ValueNotifier<bool>(false);
   final _isLoadingBiometric = ValueNotifier<bool>(false);
 
   @override
   void initState() {
     super.initState();
-    AppLogger.debug('HomeScreen.initState: checking biometric status');
+    AppLogger.debug('ProfileScreen.initState: checking biometric status');
     _checkBiometricStatus();
   }
 
@@ -28,12 +28,12 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       _biometricEnabled.value = enabled;
       AppLogger.debug(
-        'HomeScreen._checkBiometricStatus: biometric enabled=$enabled',
+        'ProfileScreen._checkBiometricStatus: biometric enabled=$enabled',
       );
     } catch (e, st) {
       AppLogger.errorWithContext(
-        'HomeScreen._checkBiometricStatus failed',
-        context: 'HomeScreen',
+        'ProfileScreen._checkBiometricStatus failed',
+        context: 'ProfileScreen',
         error: e,
         stackTrace: st,
       );
@@ -44,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _toggleBiometric(bool enable) async {
     AppLogger.debug(
-      'HomeScreen._toggleBiometric: toggling biometric to $enable',
+      'ProfileScreen._toggleBiometric: toggling biometric to $enable',
     );
     if (enable) {
       await _enableBiometric();
@@ -55,7 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _enableBiometric() async {
     AppLogger.debug(
-      'HomeScreen._enableBiometric: starting biometric enable flow',
+      'ProfileScreen._enableBiometric: starting biometric enable flow',
     );
     _isLoadingBiometric.value = true;
     try {
@@ -79,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
       await authCubit.enableBiometric();
       _biometricEnabled.value = true;
       AppLogger.debug(
-        'HomeScreen._enableBiometric: biometric enabled successfully',
+        'ProfileScreen._enableBiometric: biometric enabled successfully',
       );
 
       if (mounted) {
@@ -107,14 +107,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _disableBiometric() async {
     AppLogger.debug(
-      'HomeScreen._disableBiometric: starting biometric disable flow',
+      'ProfileScreen._disableBiometric: starting biometric disable flow',
     );
     _isLoadingBiometric.value = true;
     try {
       await getIt<AuthCubit>().disableBiometric();
       _biometricEnabled.value = false;
       AppLogger.debug(
-        'HomeScreen._disableBiometric: biometric disabled successfully',
+        'ProfileScreen._disableBiometric: biometric disabled successfully',
       );
 
       if (mounted) {
@@ -141,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _lockVault() {
     AppLogger.debug(
-      'HomeScreen._lockVault: locking vault and navigating to login',
+      'ProfileScreen._lockVault: locking vault and navigating to login',
     );
     getIt<AuthCubit>().lockVault();
     getIt<NavigationService>().pushAndRemoveUntil(RouteNames.loginRoute);
@@ -158,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: TextWidget("Trident Vault", textType: TextType.headlineLarge),
+        title: TextWidget("Vault Profile", textType: TextType.headlineLarge),
         actions: [
           IconButton(
             icon: const Icon(Icons.lock_outline),

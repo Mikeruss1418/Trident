@@ -3,6 +3,8 @@ import 'package:injectable/injectable.dart';
 import 'package:trident/core/services/biometric/biometric.dart';
 import 'package:trident/core/services/encryption/vault_encryption/vault_repository.dart';
 import 'package:trident/core/utils/logger/app_logger.dart';
+import 'package:trident/features/recent_activity/domain/models/audit_log_event.dart';
+import 'package:trident/features/recent_activity/domain/services/audit_log_service.dart';
 
 // User registered
 // ↓
@@ -53,9 +55,13 @@ enum AuthStatus { onboarding, unauthenticated, authenticated, vaultLocked }
 class AuthCubit extends Cubit<AuthStatus> {
   final VaultRepository _vaultRepository;
   final BiometricService _biometricService;
+  final AuditLogService? _auditLogService;
 
-  AuthCubit(this._vaultRepository, this._biometricService)
-    : super(AuthStatus.onboarding);
+  AuthCubit(
+    this._vaultRepository,
+    this._biometricService, [
+    this._auditLogService,
+  ]) : super(AuthStatus.onboarding);
 
   // -------------------------------------------------------------------------
   // App startup
@@ -80,6 +86,15 @@ class AuthCubit extends Cubit<AuthStatus> {
       await _vaultRepository.createVault(masterPassword);
       AppLogger.debug(
         'AuthCubit.createVault: vault created, transitioning to authenticated',
+      );
+      _auditLogService?.log(
+        AuditLogEvent(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          timestamp: DateTime.now(),
+          type: AuditLogType.vaultCreated,
+          title: 'Vault Created',
+          description: 'A new encrypted vault was created on this device.',
+        ),
       );
       emit(AuthStatus.authenticated);
     } catch (e, st) {
@@ -108,6 +123,15 @@ class AuthCubit extends Cubit<AuthStatus> {
       AppLogger.debug(
         'AuthCubit.login: unlock successful, transitioning to authenticated',
       );
+      _auditLogService?.log(
+        AuditLogEvent(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          timestamp: DateTime.now(),
+          type: AuditLogType.login,
+          title: 'Vault Accessed',
+          description: 'The vault was unlocked with the master password.',
+        ),
+      );
       emit(AuthStatus.authenticated);
     } catch (e, st) {
       AppLogger.errorWithContext(
@@ -131,6 +155,16 @@ class AuthCubit extends Cubit<AuthStatus> {
     }
     AppLogger.debug('AuthCubit.lockVault: locking vault');
     _vaultRepository.lockVault();
+    _auditLogService?.log(
+      AuditLogEvent(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        timestamp: DateTime.now(),
+        type: AuditLogType.lockVault,
+        title: 'Vault Locked',
+        description:
+            'The vault was locked and the encryption key was cleared from memory.',
+      ),
+    );
     emit(AuthStatus.vaultLocked);
     AppLogger.debug(
       'AuthCubit.lockVault: vault locked, state is now vaultLocked',
@@ -146,6 +180,15 @@ class AuthCubit extends Cubit<AuthStatus> {
     }
     AppLogger.debug(
       'AuthCubit.unlockVault: attempting unlock with master password',
+    );
+    _auditLogService?.log(
+      AuditLogEvent(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        timestamp: DateTime.now(),
+        type: AuditLogType.unlockVault,
+        title: 'Vault Unlocked',
+        description: 'The vault was unlocked with the master password.',
+      ),
     );
     await _vaultRepository.unlockVault(masterPassword);
     emit(AuthStatus.authenticated);
@@ -178,6 +221,15 @@ class AuthCubit extends Cubit<AuthStatus> {
     AppLogger.debug('AuthCubit.enableBiometric: enabling biometric unlock');
     await _vaultRepository.enableBiometric(biometricService: _biometricService);
     AppLogger.debug('AuthCubit.enableBiometric: biometric unlock enabled');
+    _auditLogService?.log(
+      AuditLogEvent(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        timestamp: DateTime.now(),
+        type: AuditLogType.biometricEnabled,
+        title: 'Biometric Enabled',
+        description: 'Biometric unlock was enabled for this vault.',
+      ),
+    );
   }
 
   /// Disables biometric unlock and clears biometric data
@@ -185,6 +237,15 @@ class AuthCubit extends Cubit<AuthStatus> {
     AppLogger.debug('AuthCubit.disableBiometric: disabling biometric unlock');
     await _vaultRepository.disableBiometric();
     AppLogger.debug('AuthCubit.disableBiometric: biometric unlock disabled');
+    _auditLogService?.log(
+      AuditLogEvent(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        timestamp: DateTime.now(),
+        type: AuditLogType.biometricDisabled,
+        title: 'Biometric Disabled',
+        description: 'Biometric unlock was disabled for this vault.',
+      ),
+    );
   }
 
   /// Attempts to unlock the vault using biometric authentication
@@ -216,10 +277,29 @@ class AuthCubit extends Cubit<AuthStatus> {
       AppLogger.debug(
         'AuthCubit.unlockWithBiometric: biometric unlock successful, transitioning to authenticated',
       );
+      _auditLogService?.log(
+        AuditLogEvent(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          timestamp: DateTime.now(),
+          type: AuditLogType.biometricUnlockAttempt,
+          title: 'Biometric Unlock',
+          description:
+              'Vault unlocked successfully using biometric authentication.',
+        ),
+      );
       emit(AuthStatus.authenticated);
     } else {
       AppLogger.warning(
         'AuthCubit.unlockWithBiometric: biometric unlock failed or cancelled',
+      );
+      _auditLogService?.log(
+        AuditLogEvent(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          timestamp: DateTime.now(),
+          type: AuditLogType.biometricUnlockAttempt,
+          title: 'Biometric Unlock Failed',
+          description: 'Biometric authentication failed or was cancelled.',
+        ),
       );
     }
     return success;
@@ -239,6 +319,16 @@ class AuthCubit extends Cubit<AuthStatus> {
   void deleteAccount() {
     AppLogger.debug('AuthCubit.deleteAccount: destroying vault');
     _vaultRepository.deleteVault();
+    _auditLogService?.log(
+      AuditLogEvent(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        timestamp: DateTime.now(),
+        type: AuditLogType.vaultDeleted,
+        title: 'Vault Deleted',
+        description:
+            'The encrypted vault was permanently destroyed and all data was wiped.',
+      ),
+    );
     emit(AuthStatus.onboarding);
     AppLogger.debug(
       'AuthCubit.deleteAccount: vault destroyed, state is now onboarding',
@@ -254,6 +344,15 @@ class AuthCubit extends Cubit<AuthStatus> {
       'AuthCubit.logout: locking vault and transitioning to unauthenticated',
     );
     _vaultRepository.lockVault();
+    _auditLogService?.log(
+      AuditLogEvent(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        timestamp: DateTime.now(),
+        type: AuditLogType.logout,
+        title: 'Logged Out',
+        description: 'The user logged out and the vault was locked.',
+      ),
+    );
     emit(AuthStatus.unauthenticated);
     AppLogger.debug(
       'AuthCubit.logout: logged out, state is now unauthenticated',

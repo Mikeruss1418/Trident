@@ -78,6 +78,9 @@ dependencies:
   #storage
   shared_preferences: ^2.5.5
 
+  #screen-protector
+  screen_protector: ^1.5.3
+
 
 
 dev_dependencies:

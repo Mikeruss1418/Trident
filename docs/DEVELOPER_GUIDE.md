@@ -12,7 +12,7 @@ Internal documentation covering the current implementation, data flows, cryptogr
 4. [Key Hierarchy](#4-key-hierarchy)
 5. [Vault Lifecycle](#5-vault-lifecycle)
 6. [Authentication State Machine](#6-authentication-state-machine)
-6A. [Authentication Flows](#6a-authentication-flows)
+   6A. [Authentication Flows](#6a-authentication-flows)
 7. [Storage Layer](#secure-storage)
 8. [Encrypted Blob Wire Format](#8-encrypted-blob-wire-format)
 9. [Routing &amp; Navigation](#9-routing--navigation)
@@ -353,18 +353,19 @@ flowchart TD
 5. → `VaultRepository.deleteVault()`:
    a. If `_dek` is non-null (vault is unlocked): iterates over every byte and sets to 0, then `_dek = null`
    b. Calls `_storage.deleteAllVaultData()` — parallel deletion of all 6 secure storage keys:
-      - `vault_salt`
-      - `vault_encrypted_dek_blob`
-      - `vault_password_verifier_blob`
-      - `biometric_enabled`
-      - `biometric_encrypted_dek`
-      - `biometric_unlock_key`
+   - `vault_salt`
+   - `vault_encrypted_dek_blob`
+   - `vault_password_verifier_blob`
+   - `biometric_enabled`
+   - `biometric_encrypted_dek`
+   - `biometric_unlock_key`
 6. ← `AuthCubit` emits `AuthStatus.onboarding`
 7. ← `GoRouter` redirect detects `onboarding` → redirects to `/sign-up`
 8. ← `DeleteAccountScreen` BlocListener also navigates to `/sign-up` as a fallback
 9. ← Navigation stack is cleared (`pushAndRemoveUntil`) so back button cannot return
 
 **Security notes:**
+
 - The DEK is zeroed from memory before deletion just like `lockVault()`
 - All biometric keys (BUK, bDEK) are destroyed — biometric unlock is permanently disabled
 - No vault metadata survives — the vault is unrecoverable
@@ -958,24 +959,24 @@ LoginScreen._checkBiometricEnabled()                 [login_screen.dart:34]
 
 ### 6A.3 Flow Comparison
 
-| Aspect                           | Master Password Flow                                     | Biometric Flow                                              |
-| -------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------- |
-| **User input**             | Typed password string                                    | Biometric sensor (Face ID / Fingerprint)                    |
-| **Key derivation**         | Argon2id (64MB, 3 iter, ~800ms-1.2s)                     | None (BUK is pre-generated random)                          |
-| **Crypto operation**       | KEK derive → verify → decrypt DEK                      | AES-256-GCM decrypt DEK with BUK                            |
-| **Key in memory**          | KEK: zeroed after use. DEK: held while unlocked          | BUK: zeroed immediately after use. DEK: held while unlocked |
-| **Data in secure storage** | salt, encrypted DEK, verifier                            | encrypted DEK (with BUK), BUK, enabled flag                 |
-| **Fallback**               | N/A (primary method)                                     | Falls back to master password on failure                    |
+| Aspect                           | Master Password Flow                                           | Biometric Flow                                              |
+| -------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------- |
+| **User input**             | Typed password string                                          | Biometric sensor (Face ID / Fingerprint)                    |
+| **Key derivation**         | Argon2id (64MB, 3 iter, ~800ms-1.2s)                           | None (BUK is pre-generated random)                          |
+| **Crypto operation**       | KEK derive → verify → decrypt DEK                            | AES-256-GCM decrypt DEK with BUK                            |
+| **Key in memory**          | KEK: zeroed after use. DEK: held while unlocked                | BUK: zeroed immediately after use. DEK: held while unlocked |
+| **Data in secure storage** | salt, encrypted DEK, verifier                                  | encrypted DEK (with BUK), BUK, enabled flag                 |
+| **Fallback**               | N/A (primary method)                                           | Falls back to master password on failure                    |
 | **State guard**            | Guarded to vaultLocked only (does not work from authenticated) | Guards for vaultLocked or unauthenticated only              |
 
 ### 6A.4 File Reference Map
 
 | File                                                                               | Role                                                                      |
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-|| `lib/features/auth/presentation/screens/login_screen.dart`                       | Login UI — master password field, biometric button, error display        |
-|| `lib/features/auth/presentation/screens/sign_up_screen.dart`                     | Sign-up UI — password creation with strength indicator                   |
-|| `lib/features/auth/presentation/screens/home_screen.dart`                        | Home UI — vault status, biometric toggle, lock/logout/delete buttons     |
-|| `lib/features/auth/presentation/screens/delete_account_screen.dart`                | Confirm vault deletion — type "DELETE" to confirm                       |
+|                                                                                    | `lib/features/auth/presentation/screens/login_screen.dart`              |
+|                                                                                    | `lib/features/auth/presentation/screens/sign_up_screen.dart`            |
+|                                                                                    | `lib/features/auth/presentation/screens/home_screen.dart`               |
+|                                                                                    | `lib/features/auth/presentation/screens/delete_account_screen.dart`     |
 | `lib/features/auth/presentation/cubits/auth_cubit/auth_cubit.dart`               | Auth state machine — all auth method orchestrations                      |
 | `lib/core/services/encryption/vault_encryption/vault_repository.dart`            | Vault operations — DEK lifecycle, delegates to crypto + storage          |
 | `lib/core/services/encryption/vault_encryption/vault_encryption_service.dart`    | Crypto engine — Argon2id, AES-256-GCM, key derivation                    |
@@ -999,15 +1000,15 @@ Backed by Android Keystore / iOS Keychain. Used **only** for vault metadata.
 
 **Keys defined in `core/storage/secured_storage_keys.dart`:**
 
-| Key                              | Content                                    | Format | Purpose                                              |
-| -------------------------------- | ------------------------------------------ | ------ | ---------------------------------------------------- |
-| `vault_salt`                   | 32-byte Argon2id salt                      | Base64 | Key derivation                                       |
-| `vault_encrypted_dek_blob`     | AES-256-GCM encrypted DEK                  | Base64 | Master password unlock                               |
-| `vault_password_verifier_blob` | AES-256-GCM encrypted verifier             | Base64 | Master password verification                         |
-| `biometric_enabled`            | `'true'` or absent                       | String | Flag: is biometric unlock enabled                    |
-| `biometric_encrypted_dek`      | AES-256-GCM encrypted DEK (keyed with BUK) | Base64 | Biometric unlock path                                |
-| `biometric_unlock_key`         | 32-byte random BUK                         | Base64 | Biometric unlock key (raw, stored in secure storage) |
-| **All keys**                 | —                                          | —     | Wiped by `deleteAllVaultData()` during account deletion |
+| Key                              | Content                                    | Format | Purpose                                                  |
+| -------------------------------- | ------------------------------------------ | ------ | -------------------------------------------------------- |
+| `vault_salt`                   | 32-byte Argon2id salt                      | Base64 | Key derivation                                           |
+| `vault_encrypted_dek_blob`     | AES-256-GCM encrypted DEK                  | Base64 | Master password unlock                                   |
+| `vault_password_verifier_blob` | AES-256-GCM encrypted verifier             | Base64 | Master password verification                             |
+| `biometric_enabled`            | `'true'` or absent                       | String | Flag: is biometric unlock enabled                        |
+| `biometric_encrypted_dek`      | AES-256-GCM encrypted DEK (keyed with BUK) | Base64 | Biometric unlock path                                    |
+| `biometric_unlock_key`         | 32-byte random BUK                         | Base64 | Biometric unlock key (raw, stored in secure storage)     |
+| **All keys**               | —                                         | —     | Wiped by`deleteAllVaultData()` during account deletion |
 
 **Implementation notes:**
 
@@ -1109,13 +1110,13 @@ Uses `go_router` with auth-state-based redirects.
 
 ### Routes
 
-| Path              | Screen                  | Auth Required        |
-| ----------------- | ----------------------- | -------------------- |
-| `/`             | Redirect based on auth state | —                   |
-| `/sign-up`      | `SignUpScreen`          | No (onboarding only) |
-| `/login`        | `LoginScreen`           | No                   |
-| `/home`         | `HomeScreen`            | Yes                  |
-| `/delete-account` | `DeleteAccountScreen` | Yes (authenticated only) |
+| Path                | Screen                       | Auth Required            |
+| ------------------- | ---------------------------- | ------------------------ |
+| `/`               | Redirect based on auth state | —                       |
+| `/sign-up`        | `SignUpScreen`             | No (onboarding only)     |
+| `/login`          | `LoginScreen`              | No                       |
+| `/home`           | `HomeScreen`               | Yes                      |
+| `/delete-account` | `DeleteAccountScreen`      | Yes (authenticated only) |
 
 ### Redirect Logic
 
@@ -1338,8 +1339,8 @@ AES-GCM's built-in MAC verification catches wrong passwords via `SecretBoxAuthen
 - [X] BLoC state abstractions
 - [X] Logger infrastructure
 - [X] Biometric authentication (Face ID / Fingerprint unlock)
-|- [X] Account deletion (vault wipe + secure storage destruction + onboarding redirect)
-|- [X] Delete account confirmation screen with "type DELETE to confirm" safety pattern
+  |- [X] Account deletion (vault wipe + secure storage destruction + onboarding redirect)
+  |- [X] Delete account confirmation screen with "type DELETE to confirm" safety pattern
 
 ### Not Implemented (Planned)
 

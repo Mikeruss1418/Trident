@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:injectable/injectable.dart';
+import 'package:trident/core/routes/route_config.dart';
+import 'package:trident/core/services/screen_protection/screen_protection_service.dart';
+import 'package:trident/injectables/injectable.dart';
 
 @lazySingleton
 class NavigationService {
   static GlobalKey<NavigatorState> rootNavigatorKey =
       GlobalKey<NavigatorState>();
   static BuildContext? get ctx =>
-      rootNavigatorKey.currentState?.context ?? rootNavigatorKey.currentContext;
+      RouteConfig.router.routerDelegate.navigatorKey.currentState?.context ??
+      rootNavigatorKey.currentContext;
 
   List<String> _routes = [];
   List<String> get routes => List.unmodifiable(_routes);
@@ -16,6 +20,7 @@ class NavigationService {
   /// It is handled by route observer
   void addRoute(String routeName) {
     _routes.add(routeName);
+    getIt<ScreenProtectionService>().syncFromRoutes(_routes);
   }
 
   /// Do not call this method from directly.
@@ -26,6 +31,7 @@ class NavigationService {
     } else {
       _routes.removeWhere((e) => e == routeName);
     }
+    getIt<ScreenProtectionService>().syncFromRoutes(_routes);
   }
 
   Future<dynamic> navigateTo(String routeName, {dynamic extra}) {
@@ -55,11 +61,11 @@ class NavigationService {
     ctx?.pop(data);
   }
 
+  bool? canPop() => ctx?.canPop();
+
   void pushReplacement(String routeName, {Object? extra}) {
     ctx?.pushReplacementNamed(routeName, extra: extra);
   }
-
-  bool? canPop() => ctx?.canPop();
 
   BuildContext getNavigationContext() {
     if (rootNavigatorKey.currentState == null) {
@@ -70,19 +76,32 @@ class NavigationService {
 }
 
 class MyNavigatorObserver extends NavigatorObserver {
-  final NavigationService _navigationService;
-
-  MyNavigatorObserver({required this._navigationService});
-
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPush(route, previousRoute);
-    _navigationService.addRoute(route.settings.name ?? "");
+    getIt<NavigationService>().addRoute(route.settings.name ?? "");
   }
 
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPop(route, previousRoute);
-    _navigationService.removeRoute(route.settings.name ?? "");
+    getIt<NavigationService>().removeRoute(route.settings.name ?? "");
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didRemove(route, previousRoute);
+    getIt<NavigationService>().removeRoute(route.settings.name ?? "");
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+    if (oldRoute?.settings.name != null) {
+      getIt<NavigationService>().removeRoute(oldRoute!.settings.name!);
+    }
+    if (newRoute?.settings.name != null) {
+      getIt<NavigationService>().addRoute(newRoute!.settings.name!);
+    }
   }
 }

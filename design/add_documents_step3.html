@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Trident Vault — Add Documents: Review & Encrypt</title>
+<style>
+  :root {
+    --foreground: #ffffff;
+    --muted-foreground: #b3b3b3;
+    --accent: #8ab4f8;
+    --border: #303030;
+    --card: #252525;
+    --surface: #1e1e1e;
+    --surface-elevated: #2a2a2a;
+    --error: #f28b82;
+    --success: #81c995;
+    --warning: #fbc02d;
+    --background: #121212;
+    --primary-container: #263b5e;
+    --on-primary: #ffffff;
+  }
+  * { margin: 0; padding: 0; box-box: border-box; }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .header .back-btn { font-size: 1.3rem; cursor: pointer; opacity: 0.6; }
+  .header h1 { font-size: 1.4rem; font-weight: 500; }
+  .step-indicator {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .step {
+    flex: 1;
+    text-align: center;
+    padding: 8px;
+    font-size: 0.82rem;
+  }
+  .step.active {
+    color: var(--accent);
+    border-bottom: 2px solid var(--accent);
+  }
+  .step.inactive {
+    color: var(--muted-foreground);
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 1.05rem;
+    font-weight: 500;
+  }
+  .card-header .icon { font-size: 1.4rem; }
+  .review-list { display: flex; flex-direction: column; gap: 12px; }
+  .review-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--surface);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .review-item .icon { font-size: 1.4rem; }
+  .review-item .info { flex: 1; }
+  .review-item .name { font-size: 0.85rem; font-weight: 500; }
+  .review-item .size { font-size: 0.72rem; color: var(--muted-foreground); }
+  .review-item .tags { display: flex; gap: 6px; margin-top: 4px; }
+  .tag {
+    font-size: 0.7rem;
+    padding: 2px 10px;
+    border-radius: 12px;
+    background: var(--primary-container);
+    color: var(--on-primary);
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .label { color: var(--muted-foreground); font-size: 0.85rem; }
+  .stat-row .value { font-weight: 600; font-size: 0.85rem; }
+  .stat-row .value.green { color: var(--success); }
+  .progress-bar {
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    margin: 8px 0;
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 100%;
+    transition: width 0.3s;
+  }
+  .note { color: var(--muted-foreground); font-size: 0.78rem; margin-top: 12px; line-height: 1.5; }
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    border: none;
+  }
+  .btn.fill {
+    background: var(--success);
+    color: var(--background);
+  }
+  .btn.fill:disabled {
+    background: var(--surface-elevated);
+    color: var(--muted-foreground);
+  }
+  .btn.outline {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--foreground);
+  }
+  .locker {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .locker .icon { font-size: 1.8rem; margin-bottom: 4px; }
+  .locker .text { font-size: 0.8rem; color: var(--muted-foreground); }
+  .design-meta {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-top: 24px;
+    font-family: monospace;
+    font-size: 0.82rem;
+    color: var(--muted-foreground);
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+  <!-- STEP 3: REVIEW & ENCRYPT -->
+  <div class="header">
+    <div class="back-btn" onclick="location.href='add_documents_step2.html'">←</div>
+    <h1>Add Documents</h1>
+  </div>
+
+  <div class="step-indicator">
+    <div class="step inactive">1. Select Files</div>
+    <div class="step inactive">2. Assign Categories</div>
+    <div class="step active">3. Review & Encrypt</div>
+  </div>
+
+  <!-- Vault status locker -->
+  <div class="locker">
+    <div class="icon">🔐</div>
+    <div class="text">Vault is unlocked — DEK in memory. Ready to encrypt.</div>
+  </div>
+
+  <!-- Review List -->
+  <div class="card">
+    <div class="card-header">
+      <span class="icon">📋</span>
+      Review Files (3)
+    </div>
+    <div class="review-list">
+      <div class="review-item">
+        <div class="icon">📄</div>
+        <div class="info">
+          <div class="name">quarterly_report_q2.pdf</div>
+          <div class="size">3.2 MB</div>
+          <div class="tags">
+            <span class="tag">Work</span>
+          </div>
+        </div>
+      </div>
+      <div class="review-item">
+        <div class="icon">📷</div>
+        <div class="info">
+          <div class="name">passport_scan.jpg</div>
+          <div class="size">1.1 MB</div>
+          <div class="tags">
+            <span class="tag">Personal</span>
+            <span class="tag">Finance</span>
+          </div>
+        </div>
+      </div>
+      <div class="review-item">
+        <div class="icon">📊</div>
+        <div class="info">
+          <div class="name">monthly_expenses.xlsx</div>
+          <div class="size">840 KB</div>
+          <div class="tags">
+            <span class="tag">Finance</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="card">
+    <div class="card-header">
+      <span class="icon">📊</span>
+      Summary
+    </div>
+    <div class="stat-row">
+      <span class="label">Total files</span>
+      <span class="value">3 files</span>
+    </div>
+    <div class="stat-row">
+      <span class="label">Uncompressed size</span>
+      <span class="value">5.1 MB</span>
+    </div>
+    <div class="stat-row">
+      <span class="label">Categories used</span>
+      <span class="value">3 (Work, Personal, Finance)</span>
+    </div>
+    <div class="stat-row">
+      <span class="label">Vault space remaining</span>
+      <span class="value green">87.6 MB of 100 MB</span>
+    </div>
+    <div class="progress-bar" style="margin-top:8px;">
+      <div class="progress-fill" style="width: 12.4%;"></div>
+    </div>
+    <div class="note">
+      Encryption will run AES-256-GCM per file using the in-memory DEK.
+      This process cannot be interrupted. The vault must remain unlocked
+      until all files are processed.
+    </div>
+  </div>
+
+  <!-- Encryption progress simulation -->
+  <div id="encrypt-state" style="display:none;">
+    <div class="card">
+      <div class="card-header">
+        <span class="icon">🔒</span>
+        Encrypting Documents...
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: 60%;" id="enc-progress"></div>
+      </div>
+      <div class="note" style="margin-top:12px;">
+        Encrypting: monthly_expenses.xlsx (60%)
+      </div>
+    </div>
+  </div>
+
+  <button class="btn fill" id="add-btn">🔒 Encrypt & Add to Vault</button>
+
+  <!-- DESIGN NOTES -->
+  <div class="design-meta">
+    === TRISECT ADD DOCUMENTS — STEP 3: REVIEW & ENCRYPT ===
+<br/><br/>
+    ENCRYPTION FLOW:
+      1. Check vault is unlocked (AuthCubit.state == authenticated)
+         → Show locker banner with green check
+         → If locked, show red banner with "Unlock vault first" + nav to /login
+      2. For each file in the list:
+         a. Read file bytes: await xFile.readAsBytes()
+         b. Encrypt: await vaultRepository.encryptDocument(plaintext)
+            → Uses AES-256-GCM with in-memory DEK
+            → Returns EncryptedBlobModel.bytes (nonce + mac + ciphertext)
+         c. Save encrypted blob to /vault/docs/<uuid>.enc (planned storage)
+         d. Save metadata to SQLCipher DB (planned):
+            - id (UUID)
+            - filename (original)
+            - category (from step 2 assignments)
+            - fileSize (original plaintext size)
+            - encryptedSize (blob size)
+            - createdAt, modifiedAt, lastAccessedAt (timestamps)
+      3. Update storage stats (count + total size)
+      4. Navigate back to Home → documents tab shows updated list
+<br/><br/>
+    PROGRESS UI:
+      - Button text changes to "🔒 Encrypting... (2/3)"
+      - Progress bar shows percentage
+      - File currently being processed shows name
+      - Button is disabled during encryption
+      - On complete: success snackbar + nav to Home
+<br/><br/>
+    DATA MODEL (planned):
+      class DocumentModel {
+        final String id;           // UUID
+        final String filename;     // original filename
+        final List<String> categories;
+        final int fileSize;        // plaintext size in bytes
+        final int encryptedSize;   // blob size
+        final DateTime createdAt;
+        final DateTime modifiedAt;
+        final DateTime lastAccessedAt;
+        final String extension;    // 'pdf', 'jpg', etc. for icon mapping
+      }
+<br/><br/>
+    ROUTING:
+      static const String addDocumentsRoute = '/add-documents';
+      static const String reviewDocumentsRoute = '/add-documents/review';
+      → step 1 & 2 are within addDocumentsRoute
+      → step 3 navigates to reviewDocumentsRoute (or same route with step state)
+<br/><br/>
+    IMPLEMENTATION STATE MANAGEMENT:
+      - DocumentAddCubit (new, planned):
+        State: { List<XFile> files, Map<String, Set<String>> categories, bool isEncrypting }
+        Methods: selectFiles(), assignCategory(fileId, category), removeFile(fileId),
+                 createCategory(name), encryptAll(), cancelEncryption()
+      - Uses BlocConsumer to react to isEncrypting state changes
+<br/><br/>
+    VERIFICATION:
+      flutter analyze --fatal-warnings
+      dart format --set-exit-if-changed .
+      flutter test --reporter=expanded
+<br/>
+  </div>
+
+  <script>
+    // Simulate the encryption button click for demo purposes
+    document.getElementById('add-btn').onclick = function() {
+      this.textContent = '🔒 Encrypting...';
+      this.disabled = true;
+      document.getElementById('encrypt-state').style.display = 'block';
+      let width = 0;
+      const interval = setInterval(() => {
+        width += 5;
+        document.getElementById('enc-progress').style.width = width + '%';
+        if (width >= 100) {
+          clearInterval(interval);
+          this.textContent = '✓ Complete! Redirecting...';
+          setTimeout(() => this.textContent = '✓ Done', 800);
+        }
+      }, 100);
+    };
+  </script>
+
+</body>
+</html>

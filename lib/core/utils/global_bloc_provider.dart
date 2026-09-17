@@ -8,7 +8,6 @@ interface class IAuthBlocProvider {
   List<SingleChildWidget> get providers => [
     BlocProvider.value(value: getIt<AuthCubit>()),
   ];
-  
 }
 
 interface class IDashboardBlocProvider {
@@ -16,8 +15,12 @@ interface class IDashboardBlocProvider {
     BlocProvider.value(value: getIt<BottomNavCubit>()),
   ];
 }
+
 interface class IGlobalBlocProvider {
-  List<SingleChildWidget> get providers => [...IAuthBlocProvider().providers,...IDashboardBlocProvider().dashboardProviders];
+  List<SingleChildWidget> get providers => [
+    ...IAuthBlocProvider().providers,
+    ...IDashboardBlocProvider().dashboardProviders,
+  ];
 }
 
 class GlobalBlocProvider extends IGlobalBlocProvider {}

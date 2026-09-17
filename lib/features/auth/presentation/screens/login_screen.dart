@@ -169,8 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         'Trident',
                         textType: TextType.custom,
                         color: AppColors.primary,
-                        textOptions: 
-                        TextOptions(
+                        textOptions: TextOptions(
                           fontSize: 32.sp,
                           fontWeight: FontWeight.w700,
                         ),
@@ -216,7 +215,9 @@ class _LoginScreenState extends State<LoginScreen> {
         if (state == AuthStatus.authenticated) {
           _isLoading.value = false;
           _isBiometricLoading.value = false;
-          getIt<NavigationService>().pushAndRemoveUntil(RouteNames.dashboardRoute);
+          getIt<NavigationService>().pushAndRemoveUntil(
+            RouteNames.dashboardRoute,
+          );
         }
       },
       child: ValueListenableBuilder<bool>(

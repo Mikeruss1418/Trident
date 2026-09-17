@@ -1,5 +1,4 @@
 mixin InitialAppMixins {
-
   List<String> visitedBottomNavBar = [];
 
   // just after login

@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:trident/core/constants/assets_path.dart';
 import 'package:trident/core/extensions/widget_extension.dart';
 import 'package:trident/core/routes/route_names.dart';
 import 'package:trident/core/services/navigation/navigation_service.dart';
 import 'package:trident/core/utils/app_imports.dart';
 import 'package:trident/features/home/data/constants/home_constants.dart';
+import 'package:trident/features/recent_activity/domain/models/audit_log_event.dart';
+import 'package:trident/features/recent_activity/domain/services/audit_log_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,8 +18,38 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
+
+  /// Latest successful unlock event, derived from the audit log so the
+  /// overview row can report the unlock method (password/biometric) and time.
+  AuditLogEvent? _lastUnlock;
+
+  /// Re-evaluates "X min ago" labels every 30s so they stay current.
+  Timer? _timeAgoTimer;
+  StreamSubscription<List<AuditLogEvent>>? _unlockSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _timeAgoTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => setState(() {}),
+    );
+    // Subscribe once (not in build) to avoid re-entrancy: watchEvents() emits
+    // the current log immediately, then again on every new logged event.
+    _unlockSubscription = getIt<AuditLogService>().watchEvents().listen((
+      events,
+    ) {
+      if (!mounted) return;
+      setState(() {
+        _lastUnlock = _latestSuccessfulUnlock(events);
+      });
+    });
+  }
+
   @override
   void dispose() {
+    _unlockSubscription?.cancel();
+    _timeAgoTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -111,32 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
             textType: TextType.bodySmall,
           ),
           24.verticalSpace,
-          _buildRow(
-            icon: Icons.shield_outlined,
-            content: Text.rich(
-              TextSpan(
-                style: TextTheme.of(context).bodySmall,
-                children: [
-                  TextSpan(
-                    text: 'Unlocked with ',
-                    style: TextStyle(color: AppColors.textTertiary),
-                  ),
-                  TextSpan(
-                    text: 'fingerprint',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14.sp,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  TextSpan(
-                    text: ' 4 min ago',
-                    style: TextStyle(color: AppColors.textTertiary),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _buildUnlockInfoRow(),
           8.verticalSpace,
           _buildRow(
             icon: Icons.access_time_rounded,
@@ -166,6 +175,52 @@ class _HomeScreenState extends State<HomeScreen> {
             // content: 'Auto-locks after. 2 min dile',
           ),
         ],
+      ),
+    );
+  }
+
+  /// The "how did you open the vault and when" row. The icon + label are
+  /// derived from the latest *successful* audit event so they reflect the
+  /// real unlock method (password vs biometric), not a hardcoded placeholder.
+  Widget _buildUnlockInfoRow() {
+    final unlock = _lastUnlock;
+    if (unlock == null) {
+      // No recorded successful unlock yet (e.g. a freshly created vault).
+      return _buildRow(
+        icon: Icons.lock_open,
+        content: const TextWidget(
+          'Vault unlocked',
+          textType: TextType.bodySmall,
+          color: AppColors.textSecondary,
+        ),
+      );
+    }
+
+    final isBiometric = unlock.type == AuditLogType.biometricUnlockAttempt;
+    return _buildRow(
+      icon: isBiometric ? Icons.fingerprint : Icons.lock_open,
+      content: Text.rich(
+        TextSpan(
+          style: Theme.of(context).textTheme.bodySmall,
+          children: [
+            TextSpan(
+              text: 'Unlocked with ',
+              style: TextStyle(color: AppColors.textTertiary),
+            ),
+            TextSpan(
+              text: isBiometric ? 'biometric' : 'password',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 14.sp,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            TextSpan(
+              text: ' ${_timeAgo(unlock.timestamp)}',
+              style: TextStyle(color: AppColors.textTertiary),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -236,4 +291,32 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
+}
+
+/// Picks the most recent *successful* unlock event from [events] (expected
+/// newest-first). Failed biometric attempts are skipped, so the overview row
+/// never reports a method that didn't actually grant access.
+AuditLogEvent? _latestSuccessfulUnlock(List<AuditLogEvent> events) {
+  for (final event in events) {
+    final isSuccessfulBiometric =
+        event.type == AuditLogType.biometricUnlockAttempt &&
+        !event.title.toLowerCase().contains('failed');
+    if (event.type == AuditLogType.login ||
+        event.type == AuditLogType.unlockVault ||
+        isSuccessfulBiometric) {
+      return event;
+    }
+  }
+  return null;
+}
+
+/// A compact, auto-ticking "time ago" label: `just now`, `4 min ago`, ...
+String _timeAgo(DateTime timestamp) {
+  final now = DateTime.now();
+  final diff = now.difference(timestamp);
+  if (diff.isNegative) return 'just now';
+  if (diff.inSeconds < 30) return 'just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+  if (diff.inHours < 24) return '${diff.inHours} hr ago';
+  return '${diff.inDays} d ago';
 }

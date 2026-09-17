@@ -24,7 +24,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
   }
 
   /// Validates that the user typed "DELETE" exactly (case-sensitive).
-  bool get _isConfirmed => _confirmationController.text == 'DELETE';
+  bool get _isConfirmed => _confirmationController.text.trim() == 'DELETE';
 
   void _deleteAccount() {
     if (!_isConfirmed) return;
@@ -210,6 +210,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                     borderRadius: BorderRadius.circular(8.r),
                   ),
                 ),
+                textCapitalization: TextCapitalization.characters,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _deleteAccount(),
                 onChanged: (_) {
                   // Trigger rebuild to update button state
                   setState(() {});

@@ -186,7 +186,7 @@ class AuthCubit extends Cubit<AuthStatus> {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         timestamp: DateTime.now(),
         type: AuditLogType.unlockVault,
-        title: 'Vault Unlocked',
+        title: 'Vault Unlocked with password',
         description: 'The vault was unlocked with the master password.',
       ),
     );
@@ -282,7 +282,7 @@ class AuthCubit extends Cubit<AuthStatus> {
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           timestamp: DateTime.now(),
           type: AuditLogType.biometricUnlockAttempt,
-          title: 'Biometric Unlock',
+          title: 'Vault unlocked with biometric',
           description:
               'Vault unlocked successfully using biometric authentication.',
         ),
@@ -319,16 +319,8 @@ class AuthCubit extends Cubit<AuthStatus> {
   void deleteAccount() {
     AppLogger.debug('AuthCubit.deleteAccount: destroying vault');
     _vaultRepository.deleteVault();
-    _auditLogService?.log(
-      AuditLogEvent(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        timestamp: DateTime.now(),
-        type: AuditLogType.vaultDeleted,
-        title: 'Vault Deleted',
-        description:
-            'The encrypted vault was permanently destroyed and all data was wiped.',
-      ),
-    );
+    // ! ALERT: removed the auditlog for delete as it is very redundant and here also need to remove the auditlogs as well
+    _auditLogService?.clear();
     emit(AuthStatus.onboarding);
     AppLogger.debug(
       'AuthCubit.deleteAccount: vault destroyed, state is now onboarding',

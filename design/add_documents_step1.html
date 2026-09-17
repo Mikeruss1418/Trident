@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Trident Vault — Add Documents Flow</title>
+<style>
+  :root {
+    --foreground: #ffffff;
+    --muted-foreground: #b3b3b3;
+    --accent: #8ab4f8;
+    --border: #303030;
+    --card: #252525;
+    --surface: #1e1e1e;
+    --surface-elevated: #2a2a2a;
+    --error: #f28b82;
+    --success: #81c995;
+    --warning: #fbc02d;
+    --background: #121212;
+    --primary-container: #263b5e;
+    --on-primary: #ffffff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .header .back-btn { font-size: 1.3rem; cursor: pointer; opacity: 0.6; }
+  .header h1 { font-size: 1.4rem; font-weight: 500; }
+  .header .actions { display: flex; gap: 8px; }
+  .header .actions button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    padding: 8px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .header .actions button:hover { background: var(--surface-elevated); }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 1.05rem;
+    font-weight: 500;
+  }
+  .card-header .icon { font-size: 1.4rem; }
+  .file-picker {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+  }
+  .file-picker:hover {
+    border-color: var(--accent);
+    background: var(--surface-elevated);
+  }
+  .file-picker .icon { font-size: 2.5rem; margin-bottom: 10px; opacity: 0.5; }
+  .file-picker .text { font-size: 0.9rem; color: var(--muted-foreground); }
+  .file-picker .subtext { font-size: 0.78rem; color: var(--muted-foreground); margin-top: 6px; }
+  .file-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    background: var(--surface);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .file-item .icon { font-size: 1.4rem; }
+  .file-item .info { flex: 1; }
+  .file-item .name { font-size: 0.85rem; font-weight: 500; }
+  .file-item .size { font-size: 0.72rem; color: var(--muted-foreground); }
+  .file-item .remove {
+    font-size: 1.1rem;
+    cursor: pointer;
+    opacity: 0.5;
+    color: var(--error);
+  }
+  .file-item .remove:hover { opacity: 1; }
+  .category-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .category-tag {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    transition: all 0.15s;
+  }
+  .category-tag:hover { background: var(--surface-elevated); }
+  .category-tag.selected {
+    background: var(--primary-container);
+    color: var(--on-primary);
+    border-color: var(--primary-container);
+  }
+  .category-tag.create {
+    border-style: dashed;
+    color: var(--accent);
+  }
+  .new-category-input {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .new-category-input input {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--foreground);
+    font-size: 0.85rem;
+  }
+  .new-category-input button {
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: var(--background);
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .new-category-input button:disabled {
+    background: var(--surface-elevated);
+    color: var(--muted-foreground);
+  }
+  .preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  .preview-item {
+    text-align: center;
+  }
+  .preview-item .icon { font-size: 2rem; margin-bottom: 6px; }
+  .preview-item .name { font-size: 0.75rem; color: var(--muted-foreground); }
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    border: none;
+  }
+  .btn.fill {
+    background: var(--accent);
+    color: var(--background);
+  }
+  .btn.fill:disabled {
+    background: var(--surface-elevated);
+    color: var(--muted-foreground);
+  }
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .tab { padding: 10px 18px; font-size: 0.85rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; }
+  .tab.active { border-bottom-color: var(--accent); color: var(--accent); }
+  .tab.inactive { color: var(--muted-foreground); }
+  .step-indicator {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .step {
+    flex: 1;
+    text-align: center;
+    padding: 8px;
+    font-size: 0.82rem;
+  }
+  .step.active {
+    color: var(--accent);
+    border-bottom: 2px solid var(--accent);
+  }
+  .step.inactive {
+    color: var(--muted-foreground);
+  }
+  .note { color: var(--muted-foreground); font-size: 0.78rem; margin-top: 12px; line-height: 1.5; }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .label { color: var(--muted-foreground); font-size: 0.85rem; }
+  .stat-row .value { font-weight: 600; font-size: 0.85rem; }
+  .empty-state {
+    text-align: center;
+    padding: 24px;
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+  }
+  .empty-state .icon { font-size: 1.8rem; margin-bottom: 8px; opacity: 0.3; }
+  .design-meta {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-top: 24px;
+    font-family: monospace;
+    font-size: 0.82rem;
+    color: var(--muted-foreground);
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+  <!-- STEP 1: SELECT FILES -->
+  <div class="header">
+    <div class="back-btn" onclick="location.href='home_screen_design.html'">←</div>
+    <h1>Add Documents</h1>
+    <div class="actions">
+      <button>📋 Select All</button>
+    </div>
+  </div>
+
+  <div class="step-indicator">
+    <div class="step active">1. Select Files</div>
+    <div class="step inactive">2. Assign Categories</div>
+    <div class="step inactive">3. Review & Encrypt</div>
+  </div>
+
+  <!-- File Picker -->
+  <div class="file-picker">
+    <div class="icon"><img src="../assets/images/trident_logo.png" alt="Logo" width="48" height="48" style="filter: invert(0.7); opacity:0.5;" /></div>
+    <div class="text">Click to browse or drag & drop files</div>
+    <div class="subtext">PDF, JPG, PNG, DOCX, XLSX, ZIP — up to 100MB each</div>
+  </div>
+
+  <!-- Selected Files -->
+  <div class="card">
+    <div class="card-header">
+      <span class="icon">📄</span>
+      Selected Files (3)
+    </div>
+    <div class="file-list">
+      <div class="file-item">
+        <div class="icon">📄</div>
+        <div class="info">
+          <div class="name">quarterly_report_q2.pdf</div>
+          <div class="size">3.2 MB</div>
+        </div>
+        <div class="remove" onclick="this.parentElement.remove()">✕</div>
+      </div>
+      <div class="file-item">
+        <div class="icon">📷</div>
+        <div class="info">
+          <div class="name">passport_scan.jpg</div>
+          <div class="size">1.1 MB</div>
+        </div>
+        <div class="remove" onclick="this.parentElement.remove()">✕</div>
+      </div>
+      <div class="file-item">
+        <div class="icon">📊</div>
+        <div class="info">
+          <div class="name">monthly_expenses.xlsx</div>
+          <div class="size">840 KB</div>
+        </div>
+        <div class="remove" onclick="this.parentElement.remove()">✕</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  <div class="card">
+    <div class="card-header">
+      <span class="icon">👁</span>
+      Preview
+    </div>
+    <div class="preview-grid">
+      <div class="preview-item">
+        <div class="icon">📄</div>
+        <div class="name">quarterly_report_q2.pdf</div>
+      </div>
+      <div class="preview-item">
+        <div class="icon">📷</div>
+        <div class="name">passport_scan.jpg</div>
+      </div>
+      <div class="preview-item">
+        <div class="icon">📊</div>
+        <div class="name">monthly_expenses.xlsx</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn fill">Continue to Categories →</div>
+
+  <!-- DESIGN NOTES -->
+  <div class="design-meta">
+    === TRISECT ADD DOCUMENTS — STEP 1: SELECT FILES ===
+<br/><br/>
+    FLOW OVERVIEW (3 steps):
+      1. Select Files — multi-file picker + preview
+      2. Assign Categories — tag each file / batch-assign
+      3. Review & Encrypt — show size summary, encrypt with DEK, save
+<br/><br/>
+    MULTI-SELECT IMPLEMENTATION:
+      - File picker: file_picker package (NOT in pubspec.yaml yet — needs adding)
+      - Supports: XFile[] for multiple selection
+      - Filters: PDF, JPEG, PNG, DOCX, XLSX, ZIP
+      - Max per file: 100MB (defined as constant)
+      - Max batch: 10 files (UX constraint, defined as constant)
+      - Preview: generates file-type icons from extension mapping
+<br/><br/>
+    CATEGORY ASSIGNMENT (STEP 2):
+      - Shows a tag cloud of existing categories (e.g., "Work", "Personal", "Finance")
+      - Each tag is tappable — applies that category to ALL selected files
+      - "Create new category" tag opens a text input inline
+      - Alternative: per-file category dropdown (for fine-grained control)
+      - Categories would be stored as simple string array in document metadata
+<br/><br/>
+    ENCRYPTION (STEP 3):
+      - Each file is encrypted with VaultRepository.encryptDocument(plaintext)
+      - Uses the in-memory DEK (AES-256-GCM) — vault must be unlocked
+      - Encrypted blobs are saved to /vault/docs/ directory (planned)
+      - Metadata (filename, category, size, timestamps) saved to SQLCipher DB (planned)
+<br/><br/>
+    FAB ON HOME SCREEN:
+      - The home screen needs a FloatingActionButton (+ icon)
+      - Positioned at bottom-right of Scaffold
+      - onPressed: getIt<NavigationService>().navigateTo(RouteNames.addDocumentsRoute)
+      - Would open this modal as a full-screen dialog or push a new route
+<br/><br/>
+    ROUTING (route_names.dart additions):
+      static const String addDocumentsRoute = '/add-documents';
+<br/><br/>
+    DEPENDENCIES TO ADD (pubspec.yaml):
+      file_picker: ^9.0.0  # multi-file picking
+      Permission would need file_picker + permission_handler (already present)
+<br/><br/>
+    WIDGET TOOLBOX REUSED:
+      - AppColors, AppTheme, TextWidget, ScreenPadding
+      - Card (same theme as all other screens)
+      - ValueNotifier + ValueListenableBuilder for file list state
+      - getIt<AuthCubit>() + getIt<VaultRepository>() for encryption
+      - getIt<NavigationService>() for routing
+<br/><br/>
+    VERIFICATION:
+      flutter analyze --fatal-warnings
+      dart format --set-exit-if-changed .
+      flutter test --reporter=expanded
+<br/>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Trident Vault — Home Screen Design (v2)</title>
+<style>
+  :root {
+    --foreground: #ffffff;
+    --muted-foreground: #b3b3b3;
+    --accent: #8ab4f8;
+    --border: #303030;
+    --card: #252525;
+    --surface: #1e1e1e;
+    --surface-elevated: #2a2a2a;
+    --error: #f28b82;
+    --success: #81c995;
+    --secondary: #81c995;
+    --warning: #fbc02d;
+    --background: #121212;
+    --primary-container: #263b5e;
+    --on-primary: #ffffff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+    position: relative;
+  }
+  /* === TOP BAR === */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--primary-container);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+    flex-shrink: 0;
+    border: 2px solid var(--border);
+  }
+  .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .avatar .fallback {
+    color: var(--on-primary);
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .avatar:hover { opacity: 0.8; }
+  .search-container {
+    flex: 1;
+    position: relative;
+  }
+  .search-container input {
+    width: 100%;
+    padding: 10px 14px 10px 38px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--foreground);
+    font-size: 0.9rem;
+  }
+  .search-container input::placeholder { color: var(--muted-foreground); }
+  .search-container .icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.05rem;
+    opacity: 0.5;
+  }
+  /* === GRID === */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 1.05rem;
+    font-weight: 500;
+  }
+  .card-header .icon { font-size: 1.4rem; }
+  .card-header .img-icon { width: 24px; height: 24px; }
+  .status-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .status-row:last-child { border-bottom: none; }
+  .status-row .label { color: var(--muted-foreground); font-size: 0.85rem; }
+  .status-row .value { font-weight: 600; font-size: 0.85rem; }
+  .stat-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: var(--surface);
+    border-radius: 10px;
+    margin-bottom: 8px;
+  }
+  .stat-box .num { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+  .stat-box .desc { color: var(--muted-foreground); font-size: 0.8rem; }
+  .stat-box .icon { font-size: 1.3rem; opacity: 0.7; }
+  .stat-box .icon.img { width: 22px; height: 22px; }
+  .note { color: var(--muted-foreground); font-size: 0.78rem; margin-top: 12px; line-height: 1.5; }
+  .badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 12px;
+  }
+  .badge.locked { background: var(--primary-container); color: var(--on-primary); }
+  /* === TABS === */
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .tab { padding: 10px 18px; font-size: 0.85rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; }
+  .tab.active { border-bottom-color: var(--accent); color: var(--accent); }
+  .tab.inactive { color: var(--muted-foreground); }
+  /* === DOC LIST === */
+  .doc-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .doc-row:last-child { border-bottom: none; }
+  .doc-row:hover { background: var(--surface-elevated); margin: -10px; padding: 10px 0 10px 12px; border-radius: 10px; }
+  .doc-icon { font-size: 1.3rem; opacity: 0.7; }
+  .doc-info { flex: 1; }
+  .doc-name { font-size: 0.88rem; font-weight: 500; }
+  .doc-sub { font-size: 0.75rem; color: var(--muted-foreground); }
+  .doc-size { font-size: 0.75rem; color: var(--muted-foreground); min-width: 60px; text-align: right; }
+  .empty-state {
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+  }
+  .empty-state .icon { font-size: 2rem; margin-bottom: 10px; opacity: 0.3; }
+  /* === FAB === */
+  .fab {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 56px;
+    height: 56px;
+    border-radius: 28px;
+    background: var(--secondary);
+    color: var(--on-primary);
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .fab:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+  }
+  .fab:active { transform: scale(0.96); }
+  /* === DESIGN NOTES === */
+  .design-meta {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-top: 24px;
+    font-family: monospace;
+    font-size: 0.82rem;
+    color: var(--muted-foreground);
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div class="avatar" onclick="location.href='profile_settings_design.html'">
+      <img src="../assets/images/trident_mobile_logo.png" alt="Avatar" />
+    </div>
+    <div class="search-container">
+      <span class="icon">🔍</span>
+      <input type="text" placeholder="Search documents..." />
+    </div>
+  </div>
+
+  <!-- GRID: VAULT STATUS + STORAGE -->
+  <div class="grid">
+
+    <!-- Vault Status -->
+    <div class="card">
+      <div class="card-header">
+        <img src="../assets/images/trident_logo.png" alt="Lock" class="img-icon" style="filter: invert(0.85) sepia(1) saturate(2) hue-rotate(190deg);" width="24" height="24" />
+        Vault Status
+      </div>
+      <div class="stat-box">
+        <div style="flex:1;">
+          <div style="font-size:1.3rem; font-weight:700;">Unlocked</div>
+          <div class="desc">Active session</div>
+        </div>
+        <div class="badge locked" style="background:var(--primary-container);">● Active</div>
+      </div>
+      <div class="status-row">
+        <span class="label">Encryption</span>
+        <span class="value">AES-256-GCM</span>
+      </div>
+      <div class="status-row">
+        <span class="label">Key Derivation</span>
+        <span class="value">Argon2id</span>
+      </div>
+      <div class="status-row">
+        <span class="label">DEK in memory</span>
+        <span class="value" style="color:var(--success);">Yes</span>
+      </div>
+      <small class="note">Vault is unlocked and ready. Documents are decrypted on access.</small>
+    </div>
+
+    <!-- Storage -->
+    <div class="card">
+      <div class="card-header">
+        <img src="../assets/images/trident_logo.png" alt="Analytics" class="img-icon" style="filter: invert(0.85) sepia(1) saturate(2) hue-rotate(180deg);" width="24" height="24" />
+        Storage
+      </div>
+      <div class="stat-box">
+        <img src="../assets/images/trident_logo.png" alt="Docs" class="img-icon" style="filter: invert(0.55) sepia(1) saturate(2) hue-rotate(190deg);" width="22" height="22" />
+        <div style="flex:1; margin-left:8px;">
+          <div class="num">24</div>
+          <div class="desc">Documents stored</div>
+        </div>
+        <div style="flex:1; text-align:right;">
+          <div class="num">12.4</div>
+          <div class="desc">MB total</div>
+        </div>
+      </div>
+      <div class="stat-box">
+        <img src="../assets/images/trident_logo.png" alt="Categories" class="img-icon" style="filter: invert(0.7) sepia(1) saturate(2) hue-rotate(170deg);" width="22" height="22" />
+        <div style="flex:1; margin-left:8px;">
+          <div style="font-weight:600;">8 Categories</div>
+          <div class="desc">Work, Personal, Finance, etc.</div>
+        </div>
+        <div style="flex:1; text-align:right;">
+          <div style="font-weight:600;">3</div>
+          <div class="desc">Large files (&gt;5MB)</div>
+        </div>
+      </div>
+      <div class="status-row" style="margin-top:8px;">
+        <span class="label">Quota used</span>
+        <span class="value">12.4 MB / 100 MB</span>
+      </div>
+      <small class="note">Storage stats are computed from the document metadata table (not yet implemented). See design notes below.</small>
+    </div>
+
+  </div>
+
+  <!-- DOCUMENTS SECTION -->
+  <div class="card">
+    <div class="card-header">
+      <img src="../assets/images/trident_logo.png" alt="Docs" class="img-icon" style="filter: invert(0.6) sepia(1) saturate(2) hue-rotate(190deg);" width="24" height="24" />
+      Documents
+    </div>
+    <div class="tab-bar">
+      <div class="tab active">All</div>
+      <div class="tab inactive">Recent</div>
+      <div class="tab inactive">Documents</div>
+      <div class="tab inactive">Images</div>
+    </div>
+    <div class="doc-row">
+      <div class="doc-icon">📄</div>
+      <div class="doc-info">
+        <div class="doc-name">quarterly_report_q2.pdf</div>
+        <div class="doc-sub">Work · Modified 2 hours ago</div>
+      </div>
+      <div class="doc-size">3.2 MB</div>
+    </div>
+    <div class="doc-row">
+      <div class="doc-icon">📷</div>
+      <div class="doc-info">
+        <div class="doc-name">passport_scan.jpg</div>
+        <div class="doc-sub">Personal · Added 1 day ago</div>
+      </div>
+      <div class="doc-size">1.1 MB</div>
+    </div>
+    <div class="doc-row">
+      <div class="doc-icon">📄</div>
+      <div class="doc-info">
+        <div class="doc-name">wire_transfer_receipt.pdf</div>
+        <div class="doc-sub">Finance · Modified 3 days ago</div>
+      </div>
+      <div class="doc-size">840 KB</div>
+    </div>
+    <div class="doc-row">
+      <div class="doc-icon">📄</div>
+      <div class="doc-info">
+        <div class="doc-name">insurance_policy.docx</div>
+        <div class="doc-sub">Personal · Modified 1 week ago</div>
+      </div>
+      <div class="doc-size">2.1 MB</div>
+    </div>
+    <div class="doc-row">
+      <div class="doc-icon">🗜</div>
+      <div class="doc-info">
+        <div class="doc-name">tax_returns_2023.zip</div>
+        <div class="doc-sub">Finance · Added 2 weeks ago</div>
+      </div>
+      <div class="doc-size">4.3 MB</div>
+    </div>
+  </div>
+
+  <!-- FAB -->
+  <div class="fab" onclick="location.href='add_documents_step1.html'">➕</div>
+
+  <!-- DESIGN NOTES -->
+  <div class="design-meta">
+    === TRISECT HOME SCREEN DESIGN (v2) ===
+<br/><br/>
+    ASSET USAGE:
+      - Avatar: assets/images/trident_mobile_logo.png (44x44, circular crop)
+        Falls back to initials badge if user hasn't uploaded a custom avatar
+        On tap → navigate to Profile/Settings screen
+      - Card headers: tinted trident_logo.png icon for visual branding
+        (uses ColorFilter to match theme colors)
+      - Document file-type icons remain emoji (📄📷📊🗜) for familiarity
+        Future: replace with proper IconData from extension mapping
+<br/><br/>
+    CHANGES FROM v1:
+      ✓ Top bar now has avatar (trident_mobile_logo.png) + search bar
+      ✓ Removed "Lock Vault" from both top bar and Vault Actions card
+      ✓ Removed biometric toggle from home screen — moved to Profile/Settings
+      ✓ "Recent Documents" → "Documents" with tab filter (All / Recent / Documents / Images)
+      ✓ Storage section re-labeled as analytics-style summary
+      ✓ Vault Actions section removed (Lock/Logout/Delete moved to Profile/Settings)
+      ✓ Added FAB (+ button) for Add Documents flow → opens 3-step modal
+<br/><br/>
+    NAVIGATION MAP:
+      Home (this screen)
+        → tap avatar → Profile / Settings screen
+        → tap FAB → Add Documents flow (Step 1: Select Files)
+        → tap doc row → Document Viewer screen (future)
+        Profile/Settings contains:
+          - Biometric Unlock toggle (was on home)
+          - Logout button (was on home)
+          - Delete Account (was on home)
+          - Lock Vault button (was on home) — note: this triggers vault lock +
+            router redirect to /login, same as AuthCubit.lockVault()
+          - Other app settings (future)
+<br/><br/>
+    STORAGE SECTION EXPLANATION:
+      The "Storage" card is NOT analytics — it is a live summary of what's
+      currently in the vault. Since the document storage layer is NOT yet
+      implemented (see DEVELOPER_GUIDE.md §14 — "Document storage" is unchecked),
+      this data would be computed at runtime from:
+        - DocumentRepository.countDocuments() → "24 Documents stored"
+        - DocumentRepository.totalSizeBytes() → "12.4 MB total"
+        - DocumentRepository.categoryCount() → "8 Categories"
+        - DocumentRepository.largeFileCount(threshold: 5MB) → "3 Large files"
+        - Quota: maxVaultSizeBytes (future constant)
+      When implemented, these would be ValueListenableBuilders or a Cubit
+      that the HomeScreen subscribes to. Currently they are static placeholders.
+<br/><br/>
+    DOCUMENTS SECTION:
+      - "All" tab: lists every document in the vault (future: from DB query)
+      - "Recent" tab: filters to documents accessed or added within 24h
+        Logic: WHERE lastAccessedAt >= (now - 24h) OR createdAt >= (now - 24h)
+      - "Documents" tab: filters by file-type (PDF, DOCX, etc.)
+      - "Images" tab: filters by file-type (JPG, PNG, GIF, etc.)
+      - Each row is tappable → opens DocumentViewerScreen (future)
+      - Empty state: "No documents yet" with folder icon
+<br/><br/>
+    ADD DOCUMENTS FLOW (accessed via FAB):
+      Step 1: Select Files — multi-file picker (file_picker package, needs adding to pubspec)
+      Step 2: Assign Categories — per-file or batch tag assignment + create new categories
+      Step 3: Review & Encrypt — summary + AES-256-GCM encryption with DEK
+      See: add_documents_step1.html, add_documents_step2.html, add_documents_step3.html
+<br/><br/>
+    WIDGET TOOLBOX REUSED FROM EXISTING CODE:
+      - AppColors (primary, secondary, success, error, surfaceElevated, etc.)
+      - AppTheme.darkTheme (Material 3, useMaterial3: true)
+      - ScreenPadding (SafeArea + horizontal 18.w)
+      - TextWidget (15 built-in TextType styles)
+      - ResponsiveLayoutWidget (mobilePortrait / tabletPortrait breakpoints)
+      - CardThemeData (surfaceContainer, 14.r radius, border color)
+      - ValueNotifier + ValueListenableBuilder pattern
+      - getIt<AuthCubit>() for state, getIt<NavigationService> for routing
+      - AssetsPath constants (trident_logo.png, trident_mobile_logo.png, trident_banner.png)
+<br/><br/>
+    ROUTING (route_names.dart additions):
+      static const String profileRoute = '/profile';
+      static const String addDocumentsRoute = '/add-documents';
+<br/><br/>
+    VERIFICATION (per-turn gate):
+      flutter analyze --fatal-warnings
+      dart format --set-exit-if-changed .
+      flutter test --reporter=expanded
+<br/>
+  </div>
+
+</body>
+</html>

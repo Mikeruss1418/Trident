@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:trident/core/constants/assets_path.dart';
 import 'package:trident/core/extensions/widget_extension.dart';
 import 'package:trident/core/routes/route_names.dart';
 import 'package:trident/core/services/biometric/biometric.dart';
@@ -155,19 +156,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   /// Logo and title
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: .center,
                     children: [
-                      Icon(
-                        Icons.security_outlined,
-                        color: AppColors.secondary,
-                        size: 28.sp,
-                      ),
+                      // Icon(
+                      //   Icons.security_outlined,
+                      //   color: AppColors.secondary,
+                      //   size: 28.sp,
+                      // ),
+                      Image.asset(AssetsPath.logoMobilePNG, height: 40.h),
                       14.horizontalSpace,
                       TextWidget(
                         'Trident',
                         textType: TextType.custom,
                         color: AppColors.primary,
-                        textOptions: TextOptions(
+                        textOptions: 
+                        TextOptions(
                           fontSize: 32.sp,
                           fontWeight: FontWeight.w700,
                         ),
@@ -213,7 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
         if (state == AuthStatus.authenticated) {
           _isLoading.value = false;
           _isBiometricLoading.value = false;
-          getIt<NavigationService>().pushAndRemoveUntil(RouteNames.homeRoute);
+          getIt<NavigationService>().pushAndRemoveUntil(RouteNames.dashboardRoute);
         }
       },
       child: ValueListenableBuilder<bool>(

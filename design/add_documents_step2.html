@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Trident Vault — Add Documents: Categories</title>
+<style>
+  :root {
+    --foreground: #ffffff;
+    --muted-foreground: #b3b3b3;
+    --accent: #8ab4f8;
+    --border: #303030;
+    --card: #252525;
+    --surface: #1e1e1e;
+    --surface-elevated: #2a2a2a;
+    --error: #f28b82;
+    --success: #81c995;
+    --warning: #fbc02d;
+    --background: #121212;
+    --primary-container: #263b5e;
+    --on-primary: #ffffff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .header .back-btn { font-size: 1.3rem; cursor: pointer; opacity: 0.6; }
+  .header h1 { font-size: 1.4rem; font-weight: 500; }
+  .header .actions { display: flex; gap: 8px; }
+  .header .actions button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    padding: 8px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .header .actions button:hover { background: var(--surface-elevated); }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 1.05rem;
+    font-weight: 500;
+  }
+  .card-header .icon { font-size: 1.4rem; }
+  .step-indicator {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .step {
+    flex: 1;
+    text-align: center;
+    padding: 8px;
+    font-size: 0.82rem;
+  }
+  .step.active {
+    color: var(--accent);
+    border-bottom: 2px solid var(--accent);
+  }
+  .step.inactive {
+    color: var(--muted-foreground);
+  }
+  .file-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--surface);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .file-item .icon { font-size: 1.4rem; }
+  .file-item .info { flex: 1; }
+  .file-item .name { font-size: 0.85rem; font-weight: 500; }
+  .file-item .size { font-size: 0.72rem; color: var(--muted-foreground); }
+  .category-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .category-tag {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    transition: all 0.15s;
+  }
+  .category-tag:hover { background: var(--surface-elevated); }
+  .category-tag.selected {
+    background: var(--primary-container);
+    color: var(--on-primary);
+    border-color: var(--primary-container);
+  }
+  .category-tag.create {
+    border-style: dashed;
+    color: var(--accent);
+  }
+  .new-category-input {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .new-category-input input {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--foreground);
+    font-size: 0.85rem;
+  }
+  .new-category-input button {
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: var(--background);
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .new-category-input button:disabled {
+    background: var(--surface-elevated);
+    color: var(--muted-foreground);
+  }
+  .batch-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .batch-btn {
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  .batch-btn:hover { background: var(--surface-elevated); }
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    border: none;
+  }
+  .btn.fill {
+    background: var(--accent);
+    color: var(--background);
+  }
+  .btn.fill:disabled {
+    background: var(--surface-elevated);
+    color: var(--muted-foreground);
+  }
+  .note { color: var(--muted-foreground); font-size: 0.78rem; margin-top: 12px; line-height: 1.5; }
+  .design-meta {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-top: 24px;
+    font-family: monospace;
+    font-size: 0.82rem;
+    color: var(--muted-foreground);
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+  <!-- STEP 2: ASSIGN CATEGORIES -->
+  <div class="header">
+    <div class="back-btn" onclick="location.href='add_documents_step1.html'">←</div>
+    <h1>Add Documents</h1>
+    <div class="actions">
+      <button>📋 Select All</button>
+    </div>
+  </div>
+
+  <div class="step-indicator">
+    <div class="step inactive">1. Select Files</div>
+    <div class="step active">2. Assign Categories</div>
+    <div class="step inactive">3. Review & Encrypt</div>
+  </div>
+
+  <!-- Batch Actions -->
+  <div class="batch-actions">
+    <div class="batch-btn">📋 Select All</div>
+    <div class="batch-btn">🔄 Bulk Assign</div>
+    <div class="batch-btn">✏️ Rename</div>
+  </div>
+
+  <!-- Files with category assignment -->
+  <div class="file-list">
+    <div class="file-item">
+      <div class="icon">📄</div>
+      <div class="info">
+        <div class="name">quarterly_report_q2.pdf</div>
+        <div class="size">3.2 MB · Current: Work</div>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <div class="category-tag selected">Work</div>
+        <div class="category-tag">📝</div>
+      </div>
+    </div>
+    <div class="file-item">
+      <div class="icon">📷</div>
+      <div class="info">
+        <div class="name">passport_scan.jpg</div>
+        <div class="size">1.1 MB · No category</div>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <div class="category-tag">Personal</div>
+        <div class="category-tag selected">Finance</div>
+      </div>
+    </div>
+    <div class="file-item">
+      <div class="icon">📊</div>
+      <div class="info">
+        <div class="name">monthly_expenses.xlsx</div>
+        <div class="size">840 KB · No category</div>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <div class="category-tag selected">Finance</div>
+        <div class="category-tag">📝</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category tag cloud -->
+  <div class="card">
+    <div class="card-header">
+      <span class="icon">🏷</span>
+      Category Tag Cloud
+    </div>
+    <div class="category-selector">
+      <div class="category-tag selected">Work</div>
+      <div class="category-tag">Personal</div>
+      <div class="category-tag selected">Finance</div>
+      <div class="category-tag">Documents</div>
+      <div class="category-tag">Images</div>
+      <div class="category-tag create">➕ Create new...</div>
+    </div>
+    <div class="new-category-input">
+      <input type="text" placeholder="Enter new category name..." />
+      <button disabled>Create</button>
+    </div>
+  </div>
+
+  <div class="btn fill">Continue to Review →</div>
+
+  <!-- DESIGN NOTES -->
+  <div class="design-meta">
+    === TRISECT ADD DOCUMENTS — STEP 2: ASSIGN CATEGORIES ===
+<br/><br/>
+    CATEGORY DATA MODEL:
+      - Categories are stored as simple String arrays per document metadata
+      - No separate Category table/DB (keeps it lightweight)
+      - Default categories: Work, Personal, Finance, Documents, Images
+      - Categories are case-insensitive, trimmed on creation
+      - Each document can have 0-3 categories (UX constraint)
+<br/><br/>
+    BATCH ASSIGNMENT MODE:
+      - "Select All" checkboxes per file row (checkbox replaces the 📝 icon)
+      - "Bulk Assign" opens a popup showing all selected files
+        with a multi-select category tag cloud
+      - Applied category goes to ALL selected files at once
+      - "Rename" opens inline rename for selected file names
+<br/><br/>
+    PER-FILE ASSIGNMENT:
+      - Tapping a tag on a file row toggles that category for that file only
+      - Selected tags get primary-container background (#263B5E) with white text
+      - Deselected tags stay surface-colored
+      - The 📝 icon per row opens a per-file dropdown for fine control
+<br/><br/>
+    CREATE NEW CATEGORY:
+      - "➕ Create new..." tag in the tag cloud opens a text input + Create button
+      - Created category is immediately available in the tag cloud
+      - Categories persist via a DocumentRepository.getCategories() call
+      - No server — categories are local to the vault metadata
+<br/><br/>
+    IMPLEMENTATION NOTES:
+      - File list state managed by a DocumentAddCubit (new, planned)
+        State: { List<XFile> files, Map<uuid, Set<String>> categoryAssignments }
+      - Category tags built from a ValueNotifier<Set<String>> of all used categories
+      - "Select All" toggles a Set<FileId> selectedFiles in the cubit
+      - Navigation: this is a full-screen route, not a modal
+        onPressed "Continue" → getIt<NavigationService>().navigateTo('/add-documents/review')
+<br/><br/>
+    VERIFICATION:
+      flutter analyze --fatal-warnings
+      dart format --set-exit-if-changed .
+      flutter test --reporter=expanded
+<br/>
+  </div>
+
+</body>
+</html>

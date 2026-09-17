@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Trident Vault — Profile & Settings Design</title>
+<style>
+  :root {
+    --foreground: #ffffff;
+    --muted-foreground: #b3b3b3;
+    --accent: #8ab4f8;
+    --border: #303030;
+    --card: #252525;
+    --surface: #1e1e1e;
+    --surface-elevated: #2a2a2a;
+    --error: #f28b82;
+    --success: #81c995;
+    --secondary: #81c995;
+    --warning: #fbc02d;
+    --background: #121212;
+    --primary-container: #263b5e;
+    --on-primary: #ffffff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .header .back-btn { font-size: 1.3rem; cursor: pointer; opacity: 0.6; }
+  .header h1 { font-size: 1.4rem; font-weight: 500; }
+  .grid {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 768px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .sidebar { display: flex; flex-direction: column; gap: 4px; }
+  .sidebar .nav-item {
+    padding: 14px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.15s;
+  }
+  .sidebar .nav-item:hover { background: var(--surface-elevated); }
+  .sidebar .nav-item.active {
+    background: var(--primary-container);
+    color: var(--on-primary);
+  }
+  .sidebar .nav-item .icon { font-size: 1.1rem; }
+  .content { display: flex; flex-direction: column; gap: 20px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 1.05rem;
+    font-weight: 500;
+  }
+  .card-header .icon { font-size: 1.4rem; }
+  .profile-section { display: flex; align-items: center; gap: 16px; }
+  .avatar-large {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--primary-container);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--on-primary);
+    font-size: 28px;
+    font-weight: 700;
+  }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-row .label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .toggle-row .title { font-size: 0.9rem; font-weight: 500; }
+  .toggle-row .subtitle { font-size: 0.78rem; color: var(--muted-foreground); }
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 42px;
+    height: 24px;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    transition: 0.2s;
+  }
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background: var(--foreground);
+    border-radius: 50%;
+    transition: 0.2s;
+  }
+  input:checked + .slider { background: var(--accent); }
+  input:checked + .slider:before { transform: translateX(18px); }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .label { color: var(--muted-foreground); font-size: 0.85rem; }
+  .stat-row .value { font-weight: 600; font-size: 0.85rem; }
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    border: none;
+  }
+  .btn.outline {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--foreground);
+  }
+  .btn.fill {
+    background: var(--error);
+    color: var(--background);
+  }
+  .btn.fill-destructive {
+    background: var(--error);
+    color: var(--background);
+    margin-top: 8px;
+  }
+  .note { color: var(--muted-foreground); font-size: 0.78rem; margin-top: 12px; line-height: 1.5; }
+  .section-title { font-size: 0.95rem; font-weight: 500; margin-bottom: 14px; }
+  .divider { height: 1px; background: var(--border); margin: 12px 0; }
+  .design-meta {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-top: 24px;
+    font-family: monospace;
+    font-size: 0.82rem;
+    color: var(--muted-foreground);
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="back-btn" onclick="location.href='home_screen_design.html'">←</div>
+    <h1>Profile & Settings</h1>
+  </div>
+
+  <div class="grid">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="nav-item active">
+        <span class="icon">👤</span> Profile
+      </div>
+      <div class="nav-item">
+        <span class="icon">⚙</span> Security
+      </div>
+      <div class="nav-item">
+        <span class="icon">🔔</span> Notifications
+      </div>
+      <div class="nav-item">
+        <span class="icon">🗑</span> Delete Account
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- Profile Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="icon">👤</span>
+          Profile
+        </div>
+        <div class="profile-section">
+          <div class="avatar-large">
+            <img src="../assets/images/trident_mobile_logo.png" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />
+          </div>
+          <div>
+            <div style="font-weight:600; font-size:1.1rem;">Trident User</div>
+            <div class="note">Vault created on Jan 15, 2025</div>
+          </div>
+        </div>
+        <div style="margin-top:16px;">
+          <div class="stat-row">
+            <span class="label">Email</span>
+            <span class="value">user@example.com</span>
+          </div>
+          <div class="stat-row">
+            <span class="label">Vault Status</span>
+            <span class="value" style="color:var(--success);">Unlocked</span>
+          </div>
+          <div class="stat-row">
+            <span class="label">Documents</span>
+            <span class="value">24 files</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Security & Auth Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="icon">⚙</span>
+          Security & Authentication
+        </div>
+
+        <div class="toggle-row">
+          <div class="label">
+            <span class="title">Biometric Unlock</span>
+            <span class="subtitle">Use Face ID / Fingerprint to unlock vault</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-row">
+          <div class="label">
+            <span class="title">Auto-Lock</span>
+            <span class="subtitle">Lock vault after 5 minutes of inactivity</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-row">
+          <div class="label">
+            <span class="title">Screenshot Protection</span>
+            <span class="subtitle">Prevent screenshots while app is in background</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="toggle-row" style="padding:14px 0 0 0; border-bottom:none;">
+          <div class="label">
+            <span class="title">Change Master Password</span>
+            <span class="subtitle">Requires current password to verify</span>
+          </div>
+          <div style="color: var(--muted-foreground); font-size: 1.2rem;">→</div>
+        </div>
+
+        <div class="toggle-row" style="padding:14px 0; border-bottom:none; border-top:1px solid var(--border);">
+          <div class="label">
+            <span class="title">Lock Vault Now</span>
+            <span class="subtitle">Lock vault immediately (DEK zeroed)</span>
+          </div>
+          <div style="color: var(--muted-foreground); font-size: 1.2rem;">→</div>
+        </div>
+
+      </div>
+
+      <!-- Account Actions Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="icon">🗑</span>
+          Vault Actions
+        </div>
+
+        <div class="btn outline" style="background: var(--surface-elevated);">
+          📤 Export Vault Backup
+        </div>
+        <div class="btn outline">
+          📥 Restore from Backup
+        </div>
+        <div class="btn fill-destructive">
+          🚪 Logout
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: 20px;">
+    <div class="card-header">
+      <span class="icon">🗑</span>
+      Delete Account
+    </div>
+    <div class="note">
+      Permanently destroys your vault. All encrypted data, biometric keys,
+      and vault metadata will be wiped. This action cannot be undone.
+    </div>
+    <div class="btn fill-destructive">
+      Delete Vault Permanently
+    </div>
+  </div>
+
+  <!-- DESIGN NOTES -->
+  <div class="design-meta">
+    === TRISECT PROFILE & SETTINGS SCREEN DESIGN ===
+<br/><br/>
+    NAVIGATION:
+      - Entered from Home via avatar tap (top-left of home screen)
+      - Back button (←) returns to Home
+      - Sidebar navigation: Profile | Security | Notifications | Delete Account
+      - Sidebar would be a NavigationRail on tablet, ListTiles on mobile
+<br/><br/>
+    ROUTING (route_names.dart additions):
+      static const String profileRoute = '/profile';
+      static const String settingsRoute = '/settings';
+      -> Would register as GoRoute in route_config.dart
+<br/><br/>
+    STATE MANAGEMENT:
+      - Biometric toggle: writes to VaultRepository.enableBiometric() / disableBiometric()
+      - Auto-Lock toggle: would write to SharedPreferences (not yet implemented)
+      - Screenshot Protection: would use flutter_windowmanager (commented out in pubspec)
+      - Vault lock: calls AuthCubit.lockVault() → emits vaultLocked → router redirects to /login
+      - Logout: calls AuthCubit.logout() → emits unauthenticated
+      - Delete Account: calls AuthCubit.deleteAccount() → emits onboarding → router redirects to /sign-up
+<br/><br/>
+    AVATAR:
+      - Currently uses generic 📱 icon (no user avatar in scope yet)
+      - Would eventually show user-uploaded avatar from secure storage
+      - Default fallback: initials-based colored badge from AppColors
+<br/><br/>
+    NEW vs EXISTING HOME_SCREEN.DART:
+      Moved from home to profile:
+        ✓ Biometric Unlock toggle (was SwitchListTile on home)
+        ✓ Lock Vault (was IconButton in AppBar + button in Vault Actions)
+        ✓ Logout (was FilledButton in Vault Actions)
+        ✓ Delete Account (was OutlinedButton in Vault Actions)
+      New additions:
+        ✓ Auto-Lock toggle (not implemented in app yet)
+        ✓ Screenshot Protection toggle (not implemented in app yet)
+        ✓ Export/Restore backup buttons (future document storage feature)
+        ✓ Sidebar navigation (new pattern not in existing codebase)
+<br/><br/>
+    WIDGET TOOLBOX REUSED:
+      - AppColors, AppTheme, TextWidget, ScreenPadding
+      - Card (same CardThemeData: surfaceContainer, 14.r radius, border)
+      - ValueNotifier + ValueListenableBuilder for toggles
+      - getIt<AuthCubit>() for auth operations
+      - getIt<NavigationService> for routing
+<br/><br/>
+    VERIFICATION:
+      flutter analyze --fatal-warnings
+      dart format --set-exit-if-changed .
+      flutter test --reporter=expanded
+<br/>
+  </div>
+
+</body>
+</html>

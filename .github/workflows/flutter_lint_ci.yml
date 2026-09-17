@@ -17,8 +17,6 @@ jobs:
 
       - run: flutter --version
 
-      - run: touch .env.dev .env.prod
-
       - run: flutter pub get
 
       - run: dart format --output=none --set-exit-if-changed .

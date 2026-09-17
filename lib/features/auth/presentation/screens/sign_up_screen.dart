@@ -67,7 +67,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
       await getIt<AuthCubit>().createVault(_masterPasswordController.text);
       AppLogger.debug('SignUpScreen._onSignUp: vault created successfully');
-      getIt<NavigationService>().pushAndRemoveUntil(RouteNames.homeRoute);
+      getIt<NavigationService>().pushAndRemoveUntil(RouteNames.dashboardRoute);
       // AuthCubit emits authenticated → router handles navigation.
       // No Navigator.push here — routing is BlocListener's job.
     } on WrongPasswordException {

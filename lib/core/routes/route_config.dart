@@ -5,9 +5,11 @@ import 'package:trident/core/services/navigation/navigation_service.dart';
 import 'package:trident/core/utils/logger/app_logger.dart';
 import 'package:trident/features/auth/presentation/cubits/auth_cubit/auth_cubit.dart';
 import 'package:trident/features/auth/presentation/screens/delete_account_screen.dart';
-import 'package:trident/features/auth/presentation/screens/home_screen.dart';
+import 'package:trident/features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'package:trident/features/home/presentation/screens/home_screen.dart';
 import 'package:trident/features/auth/presentation/screens/login_screen.dart';
 import 'package:trident/features/auth/presentation/screens/sign_up_screen.dart';
+import 'package:trident/features/profile/presentation/screens/profile_screen.dart';
 import 'package:trident/injectables/injectable.dart';
 
 class RouteConfig {
@@ -22,7 +24,7 @@ class RouteConfig {
       });
       return const SizedBox.shrink();
     },
-    observers: [MyNavigatorObserver(navigationService: NavigationService())],
+    observers: [MyNavigatorObserver()],
     routes: [
       GoRoute(
         path: RouteNames.initialRoute,
@@ -43,9 +45,9 @@ class RouteConfig {
                   : RouteNames.loginRoute;
 
             case AuthStatus.authenticated:
-              return location == RouteNames.homeRoute
+              return location == RouteNames.dashboardRoute
                   ? null
-                  : RouteNames.homeRoute;
+                  : RouteNames.dashboardRoute;
 
             case AuthStatus.vaultLocked:
               return location == RouteNames.loginRoute
@@ -60,10 +62,21 @@ class RouteConfig {
         builder: (context, state) => const SignUpScreen(),
       ),
       GoRoute(
+        path: RouteNames.dashboardRoute,
+        name: RouteNames.dashboardRoute,
+        builder: (context, state) => const DashboardScreen(),
+      ),
+      GoRoute(
         path: RouteNames.homeRoute,
         name: RouteNames.homeRoute,
         builder: (context, state) => const HomeScreen(),
       ),
+      GoRoute(
+        path: RouteNames.profileRoute,
+        name: RouteNames.profileRoute,
+        builder: (context, state) => const ProfileScreen(),
+      ),
+
       GoRoute(
         path: RouteNames.loginRoute,
         name: RouteNames.loginRoute,

@@ -6,6 +6,8 @@ import 'package:trident/core/services/biometric/biometric.dart';
 import 'package:trident/core/services/encryption/vault_encryption/vault_encryption_service.dart';
 import 'package:trident/core/services/encryption/vault_encryption/vault_storage_service.dart';
 import 'package:trident/core/utils/logger/app_logger.dart';
+import 'package:trident/features/recent_activity/domain/models/audit_log_event.dart';
+import 'package:trident/features/recent_activity/domain/services/audit_log_service.dart';
 
 /// VaultRepository is the only class that holds the in-memory DEK.
 ///
@@ -17,8 +19,9 @@ import 'package:trident/core/utils/logger/app_logger.dart';
 class VaultRepository {
   final VaultEncryptionService _crypto;
   final VaultStorageService _storage;
+  final AuditLogService? _auditLogService;
 
-  VaultRepository(this._crypto, this._storage);
+  VaultRepository(this._crypto, this._storage, [this._auditLogService]);
 
   Uint8List? _dek;
 
@@ -229,6 +232,15 @@ class VaultRepository {
     AppLogger.debug(
       'encryptDocument: encryption complete, output ${blob.bytes.length} bytes',
     );
+    _auditLogService?.log(
+      AuditLogEvent(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        timestamp: DateTime.now(),
+        type: AuditLogType.documentAdded,
+        title: 'Document Encrypted',
+        description: 'A document was encrypted and added to the vault.',
+      ),
+    );
     return blob.bytes;
   }
 
@@ -244,6 +256,15 @@ class VaultRepository {
     final plaintext = await _crypto.decryptDocument(blob, _dek!);
     AppLogger.debug(
       'decryptDocument: decryption complete, output ${plaintext.length} bytes',
+    );
+    _auditLogService?.log(
+      AuditLogEvent(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        timestamp: DateTime.now(),
+        type: AuditLogType.vaultAccessed,
+        title: 'Document Accessed',
+        description: 'A document was decrypted and accessed from the vault.',
+      ),
     );
     return plaintext;
   }

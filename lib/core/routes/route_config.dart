@@ -10,6 +10,8 @@ import 'package:trident/features/home/presentation/screens/home_screen.dart';
 import 'package:trident/features/auth/presentation/screens/login_screen.dart';
 import 'package:trident/features/auth/presentation/screens/sign_up_screen.dart';
 import 'package:trident/features/profile/presentation/screens/profile_screen.dart';
+import 'package:trident/features/documents/domain/models/document_model.dart';
+import 'package:trident/features/documents/presentation/screens/document_preview_screen.dart';
 import 'package:trident/injectables/injectable.dart';
 
 class RouteConfig {
@@ -95,6 +97,14 @@ class RouteConfig {
           return null;
         },
         builder: (context, state) => const DeleteAccountScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.documentPreviewRoute,
+        name: RouteNames.documentPreviewRoute,
+        builder: (context, state) {
+          final doc = state.extra as DocumentModel;
+          return DocumentPreviewScreen(document: doc);
+        },
       ),
     ],
   );

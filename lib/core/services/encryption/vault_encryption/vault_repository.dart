@@ -269,6 +269,15 @@ class VaultRepository {
     return plaintext;
   }
 
+  /// Returns a copy of the in-memory DEK for use by the document feature.
+  /// Only the first 16 bytes should be used as the AES-128 key.
+  ///
+  /// Throws [StateError] if vault is locked.
+  Uint8List getDek() {
+    _requireUnlocked();
+    return Uint8List.fromList(List<int>.from(_dek!));
+  }
+
   void _requireUnlocked() {
     if (!isUnlocked) {
       throw StateError(

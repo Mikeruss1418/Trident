@@ -17,6 +17,8 @@ import 'package:shared_preferences/shared_preferences.dart' as _i460;
 import '../core/services/biometric/biometric.dart' as _i222;
 import '../core/services/biometric/biometric_service.dart' as _i677;
 import '../core/services/biometric/biometric_service_impl.dart' as _i378;
+import '../core/services/documents/document_storage_service.dart' as _i465;
+import '../core/services/documents/document_storage_service_impl.dart' as _i551;
 import '../core/services/encryption/vault_encryption/vault_encryption_service.dart'
     as _i607;
 import '../core/services/encryption/vault_encryption/vault_repository.dart'
@@ -38,6 +40,7 @@ import '../features/auth/presentation/cubits/auth_cubit/auth_cubit.dart'
     as _i280;
 import '../features/dashboard/presentation/cubits/bottom_nav_cubit.dart'
     as _i346;
+import '../features/documents/presentation/cubits/document_cubit.dart' as _i771;
 import '../features/recent_activity/data/repositories/audit_log_repository.dart'
     as _i631;
 import '../features/recent_activity/data/repositories/shared_prefs_audit_log_repository.dart'
@@ -69,6 +72,9 @@ extension GetItInjectableX on _i174.GetIt {
       () => secureStorageModule.secureprefs,
     );
     gh.lazySingleton<_i346.BottomNavCubit>(() => _i346.BottomNavCubit());
+    gh.lazySingleton<_i465.DocumentStorageService>(
+      () => _i551.DocumentStorageServiceImpl(),
+    );
     gh.lazySingleton<_i677.BiometricService>(
       () => _i378.BiometricServiceImpl(),
     );
@@ -79,8 +85,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i723.SharedPrefsServiceImpl(gh<_i460.SharedPreferences>()),
     );
     gh.lazySingleton<_i631.AuditLogRepository>(
-      () =>
-          _i1013.SharedPrefsAuditLogRepository(gh<_i376.SharedPrefsService>()),
+      () => _i1013.AuditLogRepositoryImpl(gh<_i376.SharedPrefsService>()),
     );
     gh.lazySingleton<_i160.AuditLogService>(
       () => _i160.AuditLogService(gh<_i631.AuditLogRepository>()),
@@ -92,6 +97,13 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i1014.VaultRepository(
         gh<_i607.VaultEncryptionService>(),
         gh<_i761.VaultStorageService>(),
+        gh<_i160.AuditLogService>(),
+      ),
+    );
+    gh.lazySingleton<_i771.DocumentCubit>(
+      () => _i771.DocumentCubit(
+        gh<_i1014.VaultRepository>(),
+        gh<_i465.DocumentStorageService>(),
         gh<_i160.AuditLogService>(),
       ),
     );

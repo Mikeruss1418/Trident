@@ -10,10 +10,10 @@ import 'package:trident/features/recent_activity/domain/models/audit_log_event.d
 /// [AuditLogKeys.auditLogList], newest-first, capped at
 /// [AuditLogKeys.maxEvents] entries.
 @LazySingleton(as: AuditLogRepository)
-class SharedPrefsAuditLogRepository implements AuditLogRepository {
+class AuditLogRepositoryImpl implements AuditLogRepository {
   final SharedPrefsService _prefs;
 
-  SharedPrefsAuditLogRepository(this._prefs);
+  AuditLogRepositoryImpl(this._prefs);
 
   @override
   Future<List<AuditLogEvent>> loadAll() async {

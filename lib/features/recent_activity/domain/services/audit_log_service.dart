@@ -11,7 +11,7 @@ import 'package:trident/features/recent_activity/domain/models/audit_log_event.d
 ///   - [watchEvents] — a broadcast stream that emits the current list and
 ///     updates whenever a new event is logged
 ///   - [getAll] — one-shot read of all stored events
-@LazySingleton()
+@lazySingleton
 class AuditLogService {
   final AuditLogRepository _repository;
 

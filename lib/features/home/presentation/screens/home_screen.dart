@@ -5,6 +5,7 @@ import 'package:trident/core/extensions/widget_extension.dart';
 import 'package:trident/core/routes/route_names.dart';
 import 'package:trident/core/services/navigation/navigation_service.dart';
 import 'package:trident/core/utils/app_imports.dart';
+import 'package:trident/core/services/documents/document_storage_service.dart';
 import 'package:trident/features/home/data/constants/home_constants.dart';
 import 'package:trident/features/recent_activity/domain/models/audit_log_event.dart';
 import 'package:trident/features/recent_activity/domain/services/audit_log_service.dart';
@@ -23,9 +24,22 @@ class _HomeScreenState extends State<HomeScreen> {
   /// overview row can report the unlock method (password/biometric) and time.
   AuditLogEvent? _lastUnlock;
 
+  /// Current count of encrypted documents in the vault, shown on the
+  /// overview card. Refreshed via the audit log stream when documents
+  /// are added or removed.
+  int _documentCount = 0;
+
   /// Re-evaluates "X min ago" labels every 30s so they stay current.
   Timer? _timeAgoTimer;
   StreamSubscription<List<AuditLogEvent>>? _unlockSubscription;
+
+  /// Reads the document count from the storage service and updates state.
+  Future<void> _loadDocumentCount() async {
+    final count = await getIt<DocumentStorageService>().countDocuments();
+    if (mounted) {
+      setState(() => _documentCount = count);
+    }
+  }
 
   @override
   void initState() {
@@ -43,7 +57,14 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _lastUnlock = _latestSuccessfulUnlock(events);
       });
+      // Refresh document count on any document add/remove event.
+      if (events.isNotEmpty &&
+          (events.first.type == AuditLogType.documentAdded ||
+              events.first.type == AuditLogType.documentRemoved)) {
+        _loadDocumentCount();
+      }
     });
+    _loadDocumentCount();
   }
 
   @override
@@ -98,9 +119,8 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: .spaceBetween,
             children: [
-              /// for now i am providing static value here
               TextWidget(
-                0.toString(),
+                _documentCount.toString(),
                 textType: TextType.custom,
                 textOptions: TextOptions(
                   fontSize: 48.sp,

@@ -1,6 +1,6 @@
-import 'package:trident/injectables/injectable.config.dart';
 import 'package:get_it/get_it.dart';
 import 'package:injectable/injectable.dart';
+import 'package:trident/injectables/injectable.config.dart';
 
 final getIt = GetIt.instance;
 

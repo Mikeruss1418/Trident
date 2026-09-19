@@ -159,13 +159,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: TextWidget("Vault Profile", textType: TextType.headlineLarge),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.lock_outline),
-            onPressed: _lockVault,
-            tooltip: 'Lock Vault',
-          ),
-        ],
+        // actions: [
+        //   IconButton(
+        //     icon: const Icon(Icons.lock_outline),
+        //     onPressed: _lockVault,
+        //     tooltip: 'Lock Vault',
+        //   ),
+        // ],
       ),
       body: ScreenPadding(
         child: SingleChildScrollView(

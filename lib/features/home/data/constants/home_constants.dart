@@ -10,12 +10,8 @@ class HomeConstants {
       title: "Import",
     ),
     ServiceModel(
-      icon: Icon(Icons.upload_rounded, color: AppColors.primary),
-      title: 'Backup /Export',
-    ),
-    ServiceModel(
-      icon: Icon(Icons.lock_outline, color: AppColors.error),
-      title: "Lock Vault",
+      icon: Icon(Icons.folder_open, color: AppColors.primary),
+      title: 'Documents',
     ),
   ];
 }

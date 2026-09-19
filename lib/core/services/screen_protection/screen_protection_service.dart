@@ -6,8 +6,8 @@ import 'package:trident/features/dashboard/data/constants/dashboard_constants.da
 @lazySingleton
 class ScreenProtectionService {
   static const Set<String> _protectedRoutes = <String>{
-    RouteNames.loginRoute,
-    RouteNames.signUpRoute,
+    // RouteNames.loginRoute,
+    // RouteNames.signUpRoute,
   };
 
   /// only checked when the top-of-stack route is dashboardRoute —

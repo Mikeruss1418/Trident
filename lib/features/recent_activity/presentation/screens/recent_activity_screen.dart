@@ -80,13 +80,13 @@ class _RecentActivityScreenState extends State<RecentActivityScreen> {
           'Recent Activity',
           textType: TextType.headlineLarge,
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete),
-            tooltip: 'Clear all activity',
-            onPressed: () => getIt<AuditLogService>().clear(),
-          ),
-        ],
+        // actions: [
+        //   IconButton(
+        //     icon: const Icon(Icons.delete),
+        //     tooltip: 'Clear all activity',
+        //     onPressed: () => getIt<AuditLogService>().clear(),
+        //   ),
+        // ],
       ),
       floatingActionButton: AnimatedOpacity(
         opacity: _showScrollToTop ? 1.0 : 0.0,

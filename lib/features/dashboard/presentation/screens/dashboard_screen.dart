@@ -7,7 +7,7 @@ import 'package:trident/core/widgets/app_exit_alert.dart';
 import 'package:trident/features/dashboard/data/constants/dashboard_constants.dart';
 import 'package:trident/features/dashboard/presentation/cubits/bottom_nav_cubit.dart';
 import 'package:trident/features/dashboard/presentation/widgets/bottom_nav_widget.dart';
-import 'package:trident/features/documents/presentation/cubits/document_cubit.dart';
+import 'package:trident/features/documents/domain/services/document_services.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -80,7 +80,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               },
             ),
             floatingActionButton: InkWell(
-              onTap: () => getIt<DocumentCubit>().pickAndStoreDocument(),
+              onTap: () => DocumentServices.instance.handleImport(context),
               child: CircleAvatar(
                 radius: 25.r,
                 child: Icon(Icons.add, size: 30.r),

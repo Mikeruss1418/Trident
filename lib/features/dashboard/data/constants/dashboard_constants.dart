@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:trident/features/documents/presentation/screens/document_screen.dart';
 import 'package:trident/features/home/presentation/screens/home_screen.dart';
+import 'package:trident/features/profile/presentation/screens/profile_screen.dart';
 import 'package:trident/features/recent_activity/presentation/screens/recent_activity_screen.dart';
-import 'package:trident/features/settings/presentation/screens/setting_screen.dart';
 
 class BottomNavString {
   static const String home = "Home";
@@ -16,6 +16,6 @@ class DashboardConstants {
     BottomNavString.home: HomeScreen(),
     BottomNavString.documents: DocumentScreen(),
     BottomNavString.recentActivity: RecentActivityScreen(),
-    BottomNavString.setting: SettingScreen(),
+    BottomNavString.setting: ProfileScreen(),
   };
 }

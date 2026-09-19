@@ -1,14 +1,13 @@
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
-import 'package:trident/core/algorithms/aes_128.dart';
-import 'package:trident/core/algorithms/sha256.dart';
 import 'package:trident/core/services/documents/document_storage_service.dart';
 import 'package:trident/core/services/encryption/vault_encryption/vault_repository.dart';
 import 'package:trident/features/documents/domain/models/document_model.dart';
+import 'package:trident/features/documents/presentation/cubits/encryption_task.dart';
 import 'package:trident/features/recent_activity/domain/models/audit_log_event.dart';
 import 'package:trident/features/recent_activity/domain/services/audit_log_service.dart';
 
@@ -51,6 +50,11 @@ class DocumentCubit extends Cubit<DocumentState> {
   /// True when the vault is locked and the user cannot encrypt/decrypt.
   bool get isVaultLocked => !_vaultRepository.isUnlocked;
 
+  /// Maximum file size accepted for encryption/decryption (5 MB).
+  /// Larger files cause noticeable UI jank even in a background isolate
+  /// and risk out-of-memory crashes on low-end devices.
+  static const int maxFileSize = 5 * 1024 * 1024;
+
   // -------------------------------------------------------------------------
   // Document listing
   // -------------------------------------------------------------------------
@@ -66,6 +70,21 @@ class DocumentCubit extends Cubit<DocumentState> {
     }
   }
 
+  /// Searches document titles for [query] (case-insensitive).
+  /// Uses the currently loaded document list when available; otherwise
+  /// falls back to a fresh load from storage.
+  Future<List<DocumentModel>> searchDocuments(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return [];
+
+    final docs = state is DocumentLoaded
+        ? (state as DocumentLoaded).documents
+        : await _storageService.loadAllMetadata();
+
+    final q = trimmed.toLowerCase();
+    return docs.where((d) => d.title.toLowerCase().contains(q)).toList();
+  }
+
   // -------------------------------------------------------------------------
   // Document add (pick -> encrypt -> store)
   // -------------------------------------------------------------------------
@@ -73,6 +92,10 @@ class DocumentCubit extends Cubit<DocumentState> {
   /// Picks an image or PDF from the device, encrypts it with AES-128-CBC
   /// (using the vault DEK), computes a SHA-256 integrity hash, and stores
   /// the encrypted file + metadata on disk.
+  ///
+  /// Both the SHA-256 and AES-128-CBC operations run in a background
+  /// isolate via [compute] so that large files (e.g. 2.3 MB photos) do
+  /// not block the UI thread.
   Future<void> pickAndStoreDocument() async {
     if (isVaultLocked) {
       emit(DocumentError('Vault is locked'));
@@ -87,19 +110,31 @@ class DocumentCubit extends Cubit<DocumentState> {
 
       final bytes = await picked.readAsBytes();
 
+      // Reject files larger than the size limit to prevent UI jank and
+      // potential OOM crashes on low-end devices.
+      if (bytes.length > maxFileSize) {
+        emit(
+          DocumentError(
+            'File is too large. Maximum supported size is '
+            '${maxFileSize ~/ (1024 * 1024)} MB.',
+          ),
+        );
+        return;
+      }
+
       emit(DocumentLoading());
 
       // Obtain the vault DEK (first 16 bytes -> AES-128 key)
       final dek = _vaultRepository.getDek();
       final key = Uint8List.fromList(dek.sublist(0, 16));
-      final data = Uint8List.fromList(bytes);
 
-      // --- Algorithm #1: SHA-256 integrity hash ---
-      final hash = Sha256.hash(data);
-      final hashHex = _bytesToHex(hash);
+      // --- Algorithm #1 (SHA-256) + Algorithm #2 (AES-128-CBC) ---
+      // Run both in a background isolate via compute() so the UI
+      // thread stays responsive on large files.
+      final result = await compute(encryptAndHash, EncryptionTask(bytes, key));
 
-      // --- Algorithm #2: AES-128-CBC encryption ---
-      final encrypted = Aes128.encrypt(data, key);
+      final encrypted = result.encryptedData;
+      final hashHex = result.hashHex;
 
       // Determine document type from extension
       final ext = (picked.extension ?? '').toLowerCase();
@@ -149,6 +184,9 @@ class DocumentCubit extends Cubit<DocumentState> {
 
   /// Decrypts the document content and verifies its SHA-256 hash.
   /// Returns the plaintext bytes suitable for rendering.
+  ///
+  /// Decryption and hash verification run in a background isolate via
+  /// [compute] so that large previews don't freeze the UI.
   Future<Uint8List> previewDocument(DocumentModel doc) async {
     final encryptedData = await _storageService.loadEncryptedData(
       doc.encryptedFileName,
@@ -159,21 +197,21 @@ class DocumentCubit extends Cubit<DocumentState> {
 
     final dek = _vaultRepository.getDek();
     final key = Uint8List.fromList(dek.sublist(0, 16));
-    final data = Uint8List.fromList(encryptedData);
 
-    // Decrypt
-    final plaintext = Aes128.decrypt(data, key);
+    // Offload AES-128-CBC decryption + SHA-256 verification to a
+    // background isolate so large previews don't block the UI.
+    final decrypted = await compute(
+      decryptAndVerify,
+      DecryptionTask(encryptedData, key, doc.sha256),
+    );
 
-    // Verify integrity via SHA-256
-    final computedHash = Sha256.hash(plaintext);
-    final computedHex = _bytesToHex(computedHash);
-    if (computedHex != doc.sha256) {
+    if (decrypted.computedHashHex != doc.sha256) {
       throw Exception(
         'Integrity check failed: SHA-256 mismatch (possible tampering)',
       );
     }
 
-    return Uint8List.fromList(plaintext);
+    return Uint8List.fromList(decrypted.plaintext);
   }
 
   // -------------------------------------------------------------------------
@@ -205,10 +243,6 @@ class DocumentCubit extends Cubit<DocumentState> {
   // -------------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------------
-
-  static String _bytesToHex(Uint8List bytes) {
-    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-  }
 
   static DocumentType _extToType(String ext) {
     const imageExts = {'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'heic'};

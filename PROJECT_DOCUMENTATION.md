@@ -275,6 +275,8 @@ Trident follows all five practices.
 +--------------------------------------------------+
 ```
 
+> **Performance layer**: Cryptographic operations (SHA-256 + AES-128-CBC) execute in a background Dart isolate via `compute()`, orchestrated by `EncryptionTask` classes in `encryption_task.dart`. This prevents UI thread blocking on large files (2.3 MB+). A 5 MB file size cap is enforced before processing begins.
+
 ### 9.2 Document Lifecycle Flow Diagram
 
 ```
@@ -286,12 +288,16 @@ User Action: Pick Document
      Picked File (bytes)
         |
         v
-  [AES-128-CBC Encrypt]  <--- DEK from VaultRepository
+  [File size check: ≤ 5 MB?]  <-- Reject if too large
         |
-   Encrypted Bytes (32 bytes)
+   Yes
+        v
+  [AES-128-CBC + SHA-256]  <--- DEK from VaultRepository
+        |  (via compute() background isolate)
+   Encrypted Bytes (IV + ciphertext)
         |
         v
-  [SHA-256 Hash]  <--- Integrity checksum
+  [SHA-256 Hash]  <--- Integrity checksum (in same isolate)
         |
    Hash Hex String
         |
@@ -459,6 +465,8 @@ User          DocumentScreen     DocumentCubit    VaultRepository   Sha256      
  |    (grid shows new doc)           |                  |              |        |        |                 |
 ```
 
+> **Note**: hash() and encrypt() are called via compute(encryptAndHash, EncryptionTask(bytes, key)) in a background isolate. The size check (5 MB) occurs before encryption begins.
+
 ### 9.6 Sequence Diagram: Previewing a Document
 
 ```
@@ -550,7 +558,27 @@ User          PreviewScreen    DocumentCubit    VaultRepository   Aes128    Sha2
 +------------------+    | - _keyExpansion() |
                         | - _sbox, _invSbox |
                         | - _gfMul()        |
-                        +------------------+
+                        +--+
+
++--------------------+        +-----------------+
+|| EncryptionTask    |        | DecryptionTask  |
+|| +---------------+ |        | +---------------+
+|| | bytes: Uint8List| |        || | data: Uint8List |
+|| | dek: Uint8List|  |        || | key: Uint8List |
+|| +---------------+ |        || +---------------+
+|| + call()        |  |        || + call()        |
+||                  |  |        ||                  |
+|| EncryptionResult  |  |        || DecryptionResult |
+|| + ciphertext    |  |        || + plaintext     |
+|| + hashHex       |  |        || + hashMatches   |
+|| +---------------+ |        || +---------------+
++--------------------+        +-----------------+
+
++----------------------------------------+
+|| Top-Level Functions (isolate entry)   |
+|| + encryptAndHash(EncryptionTask)     |
+|| + decryptAndVerify(DecryptionTask)   |
++----------------------------------------+
 ```
 
 ---
@@ -802,8 +830,11 @@ lib/
 ├── features/
 │   └── documents/
 │       ├── domain/models/document_model.dart
+│       ├── domain/services/
+│       │   └── document_services.dart       ← Import flow with loading/error dialogs
 │       ├── presentation/
 │       │   ├── cubits/document_cubit.dart
+│       │   ├── cubits/encryption_task.dart  ← Background isolate task classes
 │       │   ├── screens/
 │       │   │   ├── document_screen.dart         ← Grid view
 │       │   │   └── document_preview_screen.dart  ← Preview
@@ -828,6 +859,16 @@ lib/
    - `AuditLogType.documentRemoved` — fired after successful deletion
 
 5. **Reactive document count**: The `HomeScreen` subscribes to `AuditLogService.watchEvents()`. When a `documentAdded` or `documentRemoved` event is detected, it calls `DocumentStorageServiceImpl.countDocuments()` to refresh the displayed count in real-time.
+
+6. **Background isolate for crypto (performance fix)**: SHA-256 hashing and AES-128-CBC encryption/decryption run in a background Dart isolate via Flutter's `compute()` function. The `EncryptionTask` classes in `lib/features/documents/presentation/cubits/encryption_task.dart` provide serializable task payloads (`EncryptionTask`, `DecryptionTask`) and top-level functions (`encryptAndHash`, `decryptAndVerify`) that execute in the isolate. This prevents the UI thread from blocking when processing large files (e.g. 2.3 MB photos).
+
+7. **File size limit (5 MB)**: Files larger than 5 MB are rejected before encryption to prevent excessive memory usage and UI jank. When a file exceeds the limit, `DocumentError` is emitted with a clear message, and a dismissible error dialog is shown.
+
+8. **Loading and error dialogs (DocumentServices)**: During document upload, `DocumentServices.instance.handleImport(context)` shows an undismissible loading dialog (`CircularProgressIndicator` + "Encrypting document...") while encryption runs in the background isolate. If the upload fails (e.g. file > 5 MB), the loading dialog is dismissed and a dismissible error dialog with the specific error message is shown. The `HomeScreen._handleServiceTap` method delegates to this service for the "Import" tile.
+
+9. **Document search**: Users can search for documents by title on the home screen. Results appear in a list with document type icons, titles, and file sizes. Tapping a result navigates to the document preview screen.
+
+10. **Route configuration**: A new `DocumentScreen` route (`RouteNames.documentRoute`) was added to `route_config.dart` with a `BlocProvider.value(getIt<DocumentCubit>())` wrapper, allowing the `DocumentScreen` to share the singleton cubit instance. The "Documents" service tile on the home screen navigates to this route.
 
 ### 11.5 Coding Conventions Applied
 
@@ -905,26 +946,33 @@ The Trident project successfully implements a complete secure document storage s
 7. **Document deletion**: Documents can be deleted, removing both the encrypted file and metadata entry
 8. **Audit logging**: Every add/remove operation is logged with timestamps and metadata
 9. **Dynamic document count**: The home screen shows a real-time count of encrypted documents
+10. **Live document search**: Users can search for documents by title on the home screen. Results appear in a list with document type icons, titles, and file sizes
+11. **Background isolate encryption**: SHA-256 + AES-128-CBC operations run in a Dart background isolate via `compute()`, preventing UI thread blocking on large files (2.3 MB photo fix)
+12. **DocumentServices flow**: The "Import" tile delegates to `DocumentServices.instance.handleImport(context)`, which orchestrates the loading dialog, background isolate encryption, and error dialog handling
+12. **File size limit (5 MB)**: Files exceeding 5 MB are rejected with a dismissible error dialog
+13. **Loading feedback**: An undismissible progress dialog with a spinner shows "Encrypting document..." during upload operations
 
 ### 13.2 What the Project Contains
 
 - **2 hand-written cryptographic algorithms**: SHA-256 (179 lines) and AES-128-CBC (401 lines), totaling ~580 lines of pure Dart crypto code
 - **1 Cubit** for state management with 4 state classes (Initial, Loading, Loaded, Error)
+- **1 Service class** (DocumentServices) for import orchestration with loading/error dialogs
 - **2 Screens** (document list, document preview)
 - **2 Widgets** (grid item card, document preview renderer)
 - **1 Service interface** + **1 Implementation** (storage layer)
 - **1 Model class** (DocumentModel with JSON serialization)
 - **19 unit tests** across 2 test files (6 SHA-256 + 11 AES + 2 pre-existing)
-- **15 source files** modified or created for the document feature
+- **17 source files** modified or created for the document feature (including encryption_task.dart and document_services.dart)
 
 ### 13.3 What It Can Do (Capabilities)
 
 | Action | How | Security Mechanism |
 |--------|-----|--------------------|
-| Store document | Pick → SHA-256 hash → AES-128-CBC encrypt → save to disk | Encryption at rest |
-| Preview document | Load → AES-128-CBC decrypt → SHA-256 verify → render | Tamper detection |
+| Store document | Pick → Size check (≤5 MB) → AES-128-CBC+SHA-256 in isolate → save to disk | Encryption at rest + integrity |
+| Preview document | Load → AES-128-CBC+SHA-256 in isolate → verify → render | Tamper detection + UI responsiveness |
 | Delete document | Remove encrypted file + metadata | Data removal |
 | Count documents | Query metadata JSON length | Metadata integrity |
+| Search documents | Filter by title on home screen | User convenience |
 | Audit action | Log to event log with timestamp | Accountability |
 
 ### 13.4 Who It Is Useful For
@@ -961,6 +1009,8 @@ This was caught by the unit test "FIPS-197 Appendix B: decrypt single block" whi
 3. **Operation order in inverse cipher matters** — AES decryption is NOT simply "encryption in reverse". The FIPS 197 specification defines a specific inverse cipher with different operation ordering
 4. **State management with BLoC/Cubit** requires careful consideration of when to emit loading states — emitting `DocumentLoading` before async operations and `DocumentLoaded`/`DocumentError` after
 5. **Reactive patterns** (stream-based document count via audit log) are cleaner than polling — the existing audit log subscription was reused to trigger count refreshes
+6. **Background isolates are essential for crypto on mobile** — moving SHA-256 + AES-128-CBC to `compute()` was the fastest fix for UI jank on large files, requiring only serializable task/result classes
+7. **UI feedback during async operations** — showing an undismissible loading dialog while encryption runs in the background, and a dismissible error dialog on failure, significantly improves perceived performance
 
 ### 14.2 Project Outcomes
 
@@ -979,6 +1029,8 @@ This was caught by the unit test "FIPS-197 Appendix B: decrypt single block" whi
 2. **File truncation** — the `write_file` tool occasionally truncated content with `[truncated]` markers — resolved by re-writing complete files
 3. **Patch tool auto-correction** — the `patch` tool auto-corrected `getIt` to `getIT` in Dart code — manually fixed each occurrence
 4. **Coding convention alignment** — initial implementations used `Text`, `Theme.of(context)`, and `Colors.grey` — refactored to use `TextWidget`, `AppColors`, and project conventions
+5. **UI thread blocking on large files** — encrypting a 2.3 MB photo caused jank and crashes because SHA-256 + AES-128-CBC ran synchronously on the main thread; resolved by moving crypto operations to a background isolate via `compute()` with serializable task/result classes
+6. **File size limits** — large files (100+ MB) could cause OOM crashes before the size limit was enforced; added 5 MB pre-encryption check with user-facing error dialog
 
 ---
 
@@ -990,6 +1042,8 @@ The application provides a complete document lifecycle: pick → encrypt → sto
 
 The project demonstrates that cryptographic primitives can be correctly implemented from scratch in a high-level language like Dart, and that rigorous testing against published standards is essential for correctness. The reactive document count in the home screen showcases how existing infrastructure (audit logging) can be leveraged for secondary features.
 
+A critical performance fix was applied: cryptographic operations (SHA-256 + AES-128-CBC) were moved to a background Dart isolate via `compute()`, preventing UI thread blocking on large files (e.g. 2.3 MB photos). A 5 MB file size limit was also enforced to prevent memory issues. The home screen was enhanced with a live document search feature and service tiles for improved usability.
+
 All code passes `flutter analyze --fatal-warnings` and `dart format --set-exit-if-changed`, and all 17 unit tests pass.
 
 ---
@@ -1000,13 +1054,13 @@ All code passes `flutter analyze --fatal-warnings` and `dart format --set-exit-i
 
 1. **Add docx/txt support**: Currently limited to images and PDFs. Adding document type support for `.docx`, `.txt`, `.pptx` would broaden utility
 2. **Biometric unlock prompt**: When the vault is locked during document operations, prompt for biometric/PIN unlock instead of just showing an error
-3. **Progress indicator for large files**: The `CircularProgressIndicator` during encryption is generic — a progress bar showing encryption/decryption progress would improve UX for large files
+3. **Progress indicator for large files** [IMPLEMENTED]: A `CircularProgressIndicator` loading dialog is now shown during encryption, and crypto operations run in a background isolate via `compute()`. A progress bar showing real-time encryption/decryption progress could be added in a future iteration
 
 ### 16.2 Medium-term
 
 1. **Migrate to Argon2 key derivation**: Currently relies on the vault's DEK. A proper password-based key derivation function (Argon2id) would allow document-level passwords
 2. **Cloud sync**: Add optional encrypted cloud backup (Google Drive/OneDrive) — encrypted data can be safely synced since only the DEK can decrypt
-3. **Document search**: Search by filename or metadata — the current implementation lists all documents but doesn't support filtering
+3. **Document search** [IMPLEMENTED]: Live search by document title is now available on the home screen, with results showing document type icons, titles, and file sizes
 4. **Granular audit log UI**: Build a dedicated screen showing the full audit trail of document operations with timestamps
 
 ### 16.3 Long-term
@@ -1029,8 +1083,11 @@ Suggested screenshots:
 4. Document preview (image)
 5. Document preview (PDF)
 6. File picker dialog
-7. Delete confirmation dialog
-8. Audit log showing documentAdded/documentRemoved events
+7. Loading dialog (encrypting document)
+8. Error dialog (file too large)
+9. Delete confirmation dialog
+10. Search results on home screen
+11. Audit log showing documentAdded/documentRemoved events
 
 ---
 

@@ -6,7 +6,11 @@ import 'package:trident/core/routes/route_names.dart';
 import 'package:trident/core/services/navigation/navigation_service.dart';
 import 'package:trident/core/utils/app_imports.dart';
 import 'package:trident/core/services/documents/document_storage_service.dart';
+import 'package:trident/features/documents/domain/models/document_model.dart';
+import 'package:trident/features/documents/domain/services/document_services.dart';
+import 'package:trident/features/documents/presentation/cubits/document_cubit.dart';
 import 'package:trident/features/home/data/constants/home_constants.dart';
+import 'package:trident/features/home/domain/models/services_model.dart';
 import 'package:trident/features/recent_activity/domain/models/audit_log_event.dart';
 import 'package:trident/features/recent_activity/domain/services/audit_log_service.dart';
 
@@ -29,6 +33,9 @@ class _HomeScreenState extends State<HomeScreen> {
   /// are added or removed.
   int _documentCount = 0;
 
+  /// Documents matching the current search query.
+  List<DocumentModel> _searchResults = [];
+
   /// Re-evaluates "X min ago" labels every 30s so they stay current.
   Timer? _timeAgoTimer;
   StreamSubscription<List<AuditLogEvent>>? _unlockSubscription;
@@ -38,6 +45,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final count = await getIt<DocumentStorageService>().countDocuments();
     if (mounted) {
       setState(() => _documentCount = count);
+    }
+  }
+
+  /// Searches documents by title as the user types.
+  Future<void> _performSearch(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() => _searchResults = []);
+      return;
+    }
+    final results = await getIt<DocumentCubit>().searchDocuments(query);
+    if (mounted) {
+      setState(() => _searchResults = results);
     }
   }
 
@@ -77,33 +96,133 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: ScreenPadding(
-        child: Column(
-          children: [
-            20.verticalSpace,
-            _buildLogo(),
-            24.verticalSpace,
-            _buildGlobalSearchPlaceHolder().onTap(() {
-              // implementation of the global search for the docs
-            }),
-            14.verticalSpace,
-            _buildOverviewCard(),
-            14.verticalSpace,
-            GridView.builder(
-              itemCount: HomeConstants.services.length,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-              ),
-              itemBuilder: (context, index) => Container(),
+    return DismissKeyboardWidget(
+      child: Scaffold(
+        body: SingleChildScrollView(
+          child: ScreenPadding(
+            child: Column(
+              children: [
+                20.verticalSpace,
+                _buildLogo(),
+                24.verticalSpace,
+                _buildSearchBar(),
+                14.verticalSpace,
+                _buildSearchResults(),
+                if (_searchResults.isEmpty) ...[
+                  _buildOverviewCard(),
+                  14.verticalSpace,
+                  _buildServiceGrid(),
+                ],
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  // -------------------------------------------------------------------------
+  // Search
+  // -------------------------------------------------------------------------
+
+  Widget _buildSearchBar() {
+    return Container(
+      width: double.maxFinite,
+      padding: EdgeInsets.all(12.r),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainer,
+        borderRadius: BorderRadius.circular(18.r),
+      ),
+      child: TextField(
+        controller: _searchController,
+        onChanged: _performSearch,
+        decoration: InputDecoration(
+          hintText: 'Search documents',
+          prefixIcon: Icon(Icons.search, color: AppColors.textTertiary),
+          border: InputBorder.none,
+          isDense: true,
+          hintStyle: TextStyle(color: AppColors.textTertiary),
+        ),
+        style: TextStyle(color: AppColors.textPrimary),
+      ),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    if (_searchResults.isNotEmpty) {
+      return ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _searchResults.length,
+        itemBuilder: (context, index) {
+          final doc = _searchResults[index];
+          return _buildSearchResultItem(doc);
+        },
+      );
+    }
+    // Show a "no results" hint only when a non-empty query has been typed.
+    if (_searchController.text.trim().isNotEmpty) {
+      return Padding(
+        padding: EdgeInsets.all(16.r),
+        child: TextWidget(
+          'No documents found',
+          textType: TextType.bodyMedium,
+          color: AppColors.textTertiary,
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildSearchResultItem(DocumentModel doc) {
+    final icon = doc.type == DocumentType.pdf
+        ? Icons.picture_as_pdf
+        : Icons.image;
+    return Container(
+      margin: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.all(12.r),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainer,
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.primary, size: 28.r),
+          12.horizontalSpace,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextWidget(
+                  doc.title,
+                  textType: TextType.bodyLarge,
+                  color: AppColors.textPrimary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                TextWidget(
+                  '${doc.size ~/ 1024} KB',
+                  textType: TextType.bodySmall,
+                  color: AppColors.textTertiary,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).onTap(() {
+      _searchController.clear();
+      _performSearch('');
+      getIt<NavigationService>().navigateTo(
+        RouteNames.documentPreviewRoute,
+        extra: doc,
+      );
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Overview card
+  // -------------------------------------------------------------------------
 
   Container _buildOverviewCard() {
     return Container(
@@ -114,7 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Column(
         mainAxisSize: .min,
-        crossAxisAlignment: .start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: .spaceBetween,
@@ -192,12 +311,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-            // content: 'Auto-locks after. 2 min dile',
           ),
         ],
       ),
     );
   }
+
+  // -------------------------------------------------------------------------
+  // Unlock info row
+  // -------------------------------------------------------------------------
 
   /// The "how did you open the vault and when" row. The icon + label are
   /// derived from the latest *successful* audit event so they reflect the
@@ -245,24 +367,73 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Container _buildGlobalSearchPlaceHolder() {
-    return Container(
-      width: double.maxFinite,
-      padding: EdgeInsets.all(12.r),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainer,
-        borderRadius: BorderRadius.circular(18.r),
+  // -------------------------------------------------------------------------
+  // Service grid
+  // -------------------------------------------------------------------------
+
+  /// Builds a grid of service tiles: the built-in services (Import,
+  /// Backup/Export, Lock Vault) plus a "Documents" tile that opens the
+  /// secure document list.
+  Widget _buildServiceGrid() {
+    final services = HomeConstants.services;
+
+    return GridView.builder(
+      itemCount: services.length,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 10,
       ),
-      child: Row(
-        mainAxisAlignment: .start,
-        children: [
-          Icon(Icons.search),
-          20.horizontalSpace,
-          TextWidget("Search", textType: TextType.bodyLarge),
-        ],
-      ),
+      itemBuilder: (context, index) {
+        final service = services[index];
+        return _buildServiceTile(service);
+      },
     );
   }
+
+  Widget _buildServiceTile(ServiceModel service) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainer,
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          service.icon,
+          8.verticalSpace,
+          TextWidget(
+            service.title,
+            textType: TextType.bodySmall,
+            color: AppColors.textSecondary,
+          ),
+        ],
+      ),
+    ).onTap(() => _handleServiceTap(service.title));
+  }
+
+  void _handleServiceTap(String title) {
+    switch (title) {
+      case 'Import':
+        DocumentServices.instance.handleImport(context);
+        break;
+      case 'Documents':
+        getIt<NavigationService>().navigateTo(RouteNames.documentRoute);
+        break;
+      case 'Lock Vault':
+        // Lock the vault via the vault repository.
+        // (Placeholder — not yet implemented.)
+        break;
+      case 'Backup /Export':
+        // Backup/export feature placeholder.
+        break;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Logo
+  // -------------------------------------------------------------------------
 
   Hero _buildLogo() {
     return Hero(
@@ -294,10 +465,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // -------------------------------------------------------------------------
+  // Row helper
+  // -------------------------------------------------------------------------
+
   Widget _buildRow({required IconData icon, required dynamic content}) {
     return Row(
       mainAxisSize: .min,
-      mainAxisAlignment: .start,
+      mainAxisAlignment: MainAxisAlignment.start,
       children: [
         Icon(icon, color: AppColors.primary, size: 15.r),
         12.horizontalSpace,
